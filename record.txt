@@ -1,0 +1,13 @@
+20180608
+about convnet-for-geometric-matching :
+(I haven't implemented the thin-plate-spline transform yet)
+
+now, using cnngeometric_pytorch as example
+
+20180609
+
+20180611
+
+20180612
+The environment of keras is finally completed!!!
+try to build a sample auto-encoder for feature extraction
