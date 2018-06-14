@@ -11,3 +11,6 @@ now, using cnngeometric_pytorch as example
 20180612
 The environment of keras is finally completed!!!
 try to build a sample auto-encoder for feature extraction
+
+20180613
+do the preprocessing with opencv in C++ => completed!
