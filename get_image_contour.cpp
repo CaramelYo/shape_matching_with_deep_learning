@@ -13,18 +13,31 @@ namespace fs = std::experimental::filesystem;
 void get_image_contour(fs::path img_path, double threshold_0 = 50., double threshold_1 = 150.);
 
 // global variables
-fs::path data_dir = "data", img_dir = "images", resized_img_dir = "resized_img", canny_dir = "canny", contour_img_dir = "contour_images", contour_dir = "contours";
+fs::path data_dir = "data", img_dir = "images", contour_dir = "contours";
+// fs::path resized_img_dir = "resized_img", canny_dir = "canny", contour_img_dir = "contour_images";
+fs::path pre_result_img_dir = "preprocessing_images";
+
 fs::path img_dir_path = data_dir / img_dir;
-fs::path resized_img_dir_path = data_dir / resized_img_dir;
-fs::path canny_dir_path = data_dir / canny_dir;
-fs::path contour_img_dir_path = data_dir / contour_img_dir;
 fs::path contour_dir_path = data_dir / contour_dir;
 
-int padding_len = 5, resized_width = 1024 - padding_len, resized_height = 1024 - padding_len;
+// fs::path resized_img_dir_path = data_dir / resized_img_dir;
+// fs::path canny_dir_path = data_dir / canny_dir;
+// fs::path contour_img_dir_path = data_dir / contour_img_dir;
+fs::path pre_result_img_dir_path = data_dir / pre_result_img_dir;
+
+int padding_len = 5,
+    resized_width = 1024 - 2 * padding_len, resized_height = 1024 - 2 * padding_len;
 
 int main(int argc, char **argv)
 {
     // check whether those directories of result exist
+    if (!fs::is_directory(contour_dir_path))
+    {
+        fs::create_directory(contour_dir_path);
+        cout << "create the directory => " << contour_dir_path << endl;
+    }
+
+    /*
     if (!fs::is_directory(resized_img_dir_path))
     {
         fs::create_directory(resized_img_dir_path);
@@ -42,11 +55,11 @@ int main(int argc, char **argv)
         fs::create_directory(contour_img_dir_path);
         cout << "create the directory => " << contour_img_dir_path << endl;
     }
-
-    if (!fs::is_directory(contour_dir_path))
+    */
+    if (!fs::is_directory(pre_result_img_dir_path))
     {
-        fs::create_directory(contour_dir_path);
-        cout << "create the directory => " << contour_dir_path << endl;
+        fs::create_directory(pre_result_img_dir_path);
+        cout << "create the directory => " << pre_result_img_dir_path << endl;
     }
 
     // read img name from dir
@@ -71,7 +84,6 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
     // resize the img
     Mat resized_img;
     resize(img, resized_img, Size(resized_width, resized_height));
-    imwrite((resized_img_dir_path / img_path.filename()).c_str(), resized_img);
 
     // pad the img
     Mat padding_img;
@@ -84,7 +96,7 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
 
     Mat canny_img;
     Canny(blur_img, canny_img, threshold_0, threshold_1, 3);
-    imwrite((canny_dir_path / img_path.filename()).c_str(), canny_img);
+    // imwrite((canny_dir_path / img_path.filename()).c_str(), canny_img);
 
     // find the contours
     vector<vector<Point>> contours;
@@ -106,9 +118,9 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
     vector<Point> max_contour = contours[max_contour_index];
 
     // output the max_contour
-    Mat temp_img = Mat::zeros(padding_img.rows, padding_img.cols, CV_8UC1);
-    uint8_t *temp_img_data = (uint8_t *)temp_img.data;
-    int temp_img_step = temp_img.step1(), temp_img_ch = temp_img.channels();
+    Mat contour_img = Mat::zeros(padding_img.rows, padding_img.cols, CV_8UC1);
+    uint8_t *contour_img_data = (uint8_t *)contour_img.data;
+    int contour_img_step = contour_img.step1(), contour_img_ch = contour_img.channels();
     uint8_t color = 255;
 
     ofstream contour_file;
@@ -118,15 +130,23 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
     {
         // contour image
         Point2i p = max_contour[i];
-        int index = p.y * temp_img_step + p.x * temp_img_ch;
+        int index = p.y * contour_img_step + p.x * contour_img_ch;
 
-        temp_img_data[index] = color;
+        contour_img_data[index] = color;
 
         // contour data
         contour_file << (double)p.x / resized_width << " " << (double)p.y / resized_height << "\n";
     }
 
-    imwrite((contour_img_dir_path / img_path.filename()).c_str(), temp_img);
+    cvtColor(canny_img, canny_img, COLOR_GRAY2BGR);
+    cvtColor(contour_img, contour_img, COLOR_GRAY2BGR);
+
+    Mat pre_result_img;
+    hconcat(padding_img, canny_img, pre_result_img);
+    hconcat(pre_result_img, contour_img, pre_result_img);
+
+    // imwrite((contour_img_dir_path / img_path.filename()).c_str(), contour_img);
+    imwrite((pre_result_img_dir_path / img_path.filename()).c_str(), pre_result_img);
 
     contour_file.close();
 
