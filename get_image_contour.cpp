@@ -25,6 +25,8 @@ fs::path contour_dir_path = data_dir / contour_dir;
 // fs::path contour_img_dir_path = data_dir / contour_img_dir;
 fs::path pre_result_img_dir_path = data_dir / pre_result_img_dir;
 
+int img_counter = 0;
+
 int padding_len = 5,
     resized_width = 1024 - 2 * padding_len, resized_height = 1024 - 2 * padding_len;
 
@@ -124,7 +126,8 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
     uint8_t color = 255;
 
     ofstream contour_file;
-    contour_file.open((contour_dir_path / img_path.stem()) + ".txt");
+    // contour_file.open((contour_dir_path / img_path.stem()) + ".txt");
+    contour_file.open((contour_dir_path / to_string(img_counter)) + ".txt");
 
     for (size_t i = 0; i < max_contour.size(); ++i)
     {
@@ -146,7 +149,8 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
     hconcat(pre_result_img, contour_img, pre_result_img);
 
     // imwrite((contour_img_dir_path / img_path.filename()).c_str(), contour_img);
-    imwrite((pre_result_img_dir_path / img_path.filename()).c_str(), pre_result_img);
+    // imwrite((pre_result_img_dir_path / img_path.filename()).c_str(), pre_result_img);
+    imwrite((pre_result_img_dir_path / to_string(img_counter++) += img_path.extension()).c_str(), pre_result_img);
 
     contour_file.close();
 
