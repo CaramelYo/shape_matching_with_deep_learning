@@ -3,3 +3,6 @@
 
 ## data dir
 data/
+
+## log file
+*.log

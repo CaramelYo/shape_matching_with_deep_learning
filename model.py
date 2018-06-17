@@ -10,7 +10,7 @@ from keras.layers import Input, Conv2D, Conv2DTranspose, BatchNormalization, Act
 class Feature_extraction_model:
     def build(
         method='resnet', input_tensor=None, input_shape=None, weight_path=None,
-        is_training=False, is_bn=True, is_deconv=False, use_cuda=True
+        is_training=False, is_bn=True, is_conv=True, is_deconv=False, use_cuda=True
     ):
         # what about loading the model here?
 
@@ -27,15 +27,15 @@ class Feature_extraction_model:
                 
                 # input_shape = (h, w, ch)
                 # but in our case, it should be (2, n) or (2, n, 1)
-                input_tensor = Input(shape=input_shape)
+                # input_tensor = Input(shape=input_shape)
             
             model = Sequential()
             
-            model.add(input_tensor)
+            # model.add(input_tensor)
 
             # bn our input
             if is_bn:
-                model.add(BatchNormalization())
+                model.add(BatchNormalization(input_shape=input_shape))
                 # model = BatchNormalization(axis=3)
             
             # build those conv layers
@@ -44,19 +44,20 @@ class Feature_extraction_model:
             #     name='conv1')(model)
             layer_counter = 1
 
-            for i in range(Feature_extraction_model.n_conv_layer):
-                n_filter = Feature_extraction_model.n_conv_filters[i]
+            if is_conv:
+                for i in range(Feature_extraction_model.n_conv_layer):
+                    n_filter = Feature_extraction_model.n_conv_filters[i]
 
-                model.add(Conv2D(
-                    filter=n_filter, kernel_size=(2, 2), strides=(1, 1), padding='same',
-                    name='conv' + str(layer_counter)))
+                    model.add(Conv2D(
+                        filters=n_filter, kernel_size=(2, 2), strides=(1, 1), padding='same',
+                        name='conv' + str(layer_counter)))
 
-                if is_bn:
-                    model.add(BatchNormalization(name='bn' + str(layer_counter)))
-            
-                model.add(Activation(Feature_extraction_model.conv_activation, name='act' + str(layer_counter)))
+                    if is_bn:
+                        model.add(BatchNormalization(name='bn' + str(layer_counter)))
+                
+                    model.add(Activation(Feature_extraction_model.conv_activation, name='act' + str(layer_counter)))
 
-                layer_counter = layer_counter + 1
+                    layer_counter = layer_counter + 1
 
             # model.add(
             #     Conv2D(filter=1, kernel_size=(2, 1), strides=(1, 1), padding='same',
@@ -75,7 +76,7 @@ class Feature_extraction_model:
                     n_filter = Feature_extraction_model.n_deconv_filters[i]
 
                     model.add(Conv2DTranspose(
-                        filter=n_filter, kernel_size=(2, 2), strides=(1, 1), padding='same',
+                        filters=n_filter, kernel_size=(2, 2), strides=(1, 1), padding='same',
                         name='deconv' + str(layer_counter)))
 
                     if is_bn:
@@ -85,20 +86,18 @@ class Feature_extraction_model:
 
                     layer_counter = layer_counter + 1
 
-                model.add(
-                    Conv2D(filter=1, kernel_size=(2, 1), strides=(1, 1), padding='same',
-                    name='conv' + str(layer_counter)))
+                model.add(Conv2D(filters=1, kernel_size=(2, 1), strides=(1, 1), padding='same', name='conv' + str(layer_counter)))
                 
                 if is_bn:
                     model.add(BatchNormalization(name='bn' + str(layer_counter)))
                 
-                model.add(Activation('sigmod', name='act' + str(layer_counter)))
+                model.add(Activation('sigmoid', name='act' + str(layer_counter)))
 
                 layer_counter = layer_counter + 1
 
             # load the previous parameters
             if weight_path and os.path.isfile(weight_path):
-                logging.info('model exists')
+                logging.info('model weight exists')
                 model.load_weights(weight_path, by_name=True)
 
             model.summary()
