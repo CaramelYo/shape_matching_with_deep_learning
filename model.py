@@ -2,9 +2,11 @@ import logging
 import os
 
 from keras.models import Sequential
-from keras.layers import Input, Conv2D, Conv2DTranspose, BatchNormalization, Activation
+from keras.layers import Conv2D, Conv2DTranspose, BatchNormalization, Activation
 # from keras.applications.resnet50 import ResNet50
 # from keras.initializer import Constant
+
+main_log = logging.getLogger('main_log')
 
 
 class Feature_extraction_model:
@@ -16,13 +18,13 @@ class Feature_extraction_model:
 
         if method == 'resnet':
             # ResNet50(include_top = False, weights = 'imagenet', input_tensor = inputs)
-            logging.info('no implementation')
+            main_log.info('no implementation')
         else:
             # self-defined feature extraction
             if not input_tensor:
                 
                 if not input_shape:
-                    logging.error('input_shape is None when input_tensor is None')
+                    main_log.error('input_shape is None when input_tensor is None')
                     return
                 
                 # input_shape = (h, w, ch)
@@ -96,8 +98,9 @@ class Feature_extraction_model:
                 layer_counter = layer_counter + 1
 
             # load the previous parameters
+            main_log.debug(weight_path)
             if weight_path and os.path.isfile(weight_path):
-                logging.info('model weight exists')
+                main_log.info('model weight exists')
                 model.load_weights(weight_path, by_name=True)
 
             model.summary()
