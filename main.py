@@ -23,7 +23,8 @@ fe_model_weight_path = os.path.join(fe_dir, 'fe_model_weight.h5')
 # nn setting
 fe_lr = 0.00001
 fe_loss = 'mse'
-fe_epo = 2
+fe_epo = 1000
+# batch_size must be 1 because the length of contours are different
 fe_batch_size = 1
 
 # logging setting
@@ -78,7 +79,7 @@ def load_contour(path):
         exit()
 
 
-def generate_contour_from_file(d, batch_size, is_infinite=True):
+def generate_contour_from_dir(d, batch_size, is_infinite=True, is_name=False):
     while True:
         batch_counter = 0
         xs = []
@@ -99,7 +100,11 @@ def generate_contour_from_file(d, batch_size, is_infinite=True):
             if batch_counter >= batch_size:
                 xs = np.array(xs, dtype=np.float32)
                 ys = np.array(ys, dtype=np.float32)
-                yield(xs, ys)
+
+                if is_name:
+                    yield(xs, ys, contour_name)
+                else:
+                    yield(xs, ys)
 
                 del batch_counter, xs, ys
                 batch_counter = 0
@@ -119,27 +124,31 @@ def generate_contour_from_file(d, batch_size, is_infinite=True):
 
 if __name__ == '__main__':
     # use argparser??
+    t0 = time.time()
+
     if len(sys.argv) >= 2:
         if sys.argv[1] == 'fe-train':
-            t0 = time.time()
-
             n_training = count_data(fe_training_dir)
             n_validation = count_data(fe_validation_dir)
             main_log.info('n_training = %d \nn_validation = %d' % (n_training, n_validation))
 
-            model = Feature_extraction_model.build(method='self', input_shape=(2, None, 1), weight_path=fe_model_weight_path, is_training=True, is_deconv=True)
-            main_log.info('build model completed')
+            model = Feature_extraction_model.build(
+                method='self-defined',
+                input_shape=(2, None, 1),
+                weight_path=fe_model_weight_path,
+                is_training=True,
+                is_deconv=True
+            )
+            main_log.info('building model is completed')
 
-            adam = Adam(lr=fe_lr)
-
-            model.compile(loss=fe_loss, optimizer=adam)
+            model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
 
             # is it need to generate the ground truth data in validation_data part??
             history = model.fit_generator(
-                generate_contour_from_file(fe_training_dir, fe_batch_size),
+                generate_contour_from_dir(fe_training_dir, fe_batch_size),
                 steps_per_epoch=n_training / fe_batch_size,
                 epochs=fe_epo,
-                validation_data=generate_contour_from_file(fe_training_dir, fe_batch_size),
+                validation_data=generate_contour_from_dir(fe_training_dir, fe_batch_size),
                 validation_steps=n_validation / fe_batch_size,
                 callbacks=[
                     TensorBoard(log_dir=fe_tb_model_log_dir, batch_size=fe_batch_size),
@@ -159,6 +168,52 @@ if __name__ == '__main__':
             # stderr_log = open(stderr_log_path, 'a')
             # sys.stderr = stderr_log
 
-        main_log.info('training time = %s' % (time.time() - t0))
+            del n_training, n_validation, model
+        elif sys.argv[1] == 'fe-test':
+            n_test = count_data(fe_test_dir)
+            main_log.info('n_test = %d' % n_test)
 
-        del t0, n_training, n_validation, model, adam
+            model = Feature_extraction_model.build(
+                method='self-defined',
+                input_shape=(2, None, 1),
+                weight_path=fe_model_weight_path,
+                is_training=False,
+                is_deconv=True
+            )
+            main_log.info('building model is completed')
+
+            model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
+
+            # test the loss
+            scores = model.evaluate_generator(
+                generate_contour_from_dir(fe_test_dir, fe_batch_size),
+                steps=n_test / fe_batch_size,
+                verbose=1
+            )
+
+            main_log.info('scores = %s' % scores)
+
+            # output the prediction
+            if not os.path.exists(fe_pred_dir):
+                logging.info('create the dir = %s' % fe_pred_dir)
+                os.mkdir(fe_pred_dir)
+
+            for xs, ys, name in generate_contour_from_dir(fe_test_dir, fe_batch_size, is_infinite=False, is_name=True):
+                preds = model.predict_on_batch(xs)
+
+                # post processing
+
+                # get rid of those dim = 1
+                preds = np.squeeze(preds)
+
+                f = open(os.path.join(fe_pred_dir, name), 'w')
+                for i in range(preds.shape[1]):
+                    f.write('%f %f\n' % (preds[0][i], preds[1][i]))
+                f.close()
+
+                del preds, f
+
+            del n_test, model, scores
+
+    main_log.info('time cost = %s' % (time.time() - t0))
+    del t0

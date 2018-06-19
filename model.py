@@ -14,12 +14,13 @@ class Feature_extraction_model:
         method='resnet', input_tensor=None, input_shape=None, weight_path=None,
         is_training=False, is_bn=True, is_conv=True, is_deconv=False, use_cuda=True
     ):
+        # is_training is unused here
         # what about loading the model here?
 
         if method == 'resnet':
             # ResNet50(include_top = False, weights = 'imagenet', input_tensor = inputs)
             main_log.info('no implementation')
-        else:
+        elif method == 'self-defined':
             # self-defined feature extraction
             if not input_tensor:
                 
@@ -98,7 +99,6 @@ class Feature_extraction_model:
                 layer_counter = layer_counter + 1
 
             # load the previous parameters
-            main_log.debug(weight_path)
             if weight_path and os.path.isfile(weight_path):
                 main_log.info('model weight exists')
                 model.load_weights(weight_path, by_name=True)
@@ -106,6 +106,9 @@ class Feature_extraction_model:
             model.summary()
             
             return model
+        else:
+            logging.error('Feature_extraction_model build error: unexpected method = %s' % method)
+            return
 
     conv_activation = 'relu'
     n_conv_filters = [64, 128, 256, 512]
