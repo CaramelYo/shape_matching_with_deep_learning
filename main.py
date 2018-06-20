@@ -5,6 +5,8 @@ import time
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint
+import keras.backend as K
+import tensorflow as tf
 
 from model import Feature_extraction_model
 
@@ -122,6 +124,37 @@ def generate_contour_from_dir(d, batch_size, is_infinite=True, is_name=False):
             break
 
 
+def get_loss():
+    def binary_crossentropy(y_true, y_pred):
+        # result = []
+        # y_pred_shape = K.shape(y_pred)
+        # main_log.debug(y_pred_shape)
+        # y_pred_len = y_pred.get_shape().as_list()
+        # main_log.debug(y_pred_len)
+
+        # for i in range(y_pred_len):
+        #     y_pred[i] = [max(min(x, 1 - K.epsilon()), K.epsilon()) for x in y_pred[i]]
+        #     result.append(-np.mean([y_true[i][j] * K.log(y_pred[i][j]) + (1 - y_true[i][j]) * K.log(1 - y_pred[i][j]) for j in range(len(y_pred[i]))]))
+        # return np.mean(result)
+        i = tf.constant(0, dtype=tf.int32)
+        loss = tf.Variable(0, dtype=tf.float32)
+        while_condition = lambda i, loss: K.less(i, tf.shape(y_true)[2])
+
+        main_log.debug(i)
+
+        def while_body(i, loss):
+            main_log.debug('yo')
+            return [tf.add(i, 1), tf.add(loss, 1)]
+        
+        r = tf.while_loop(while_condition, while_body, [i, loss])
+
+        main_log.debug(r)
+        # main_log.debug(r[1].eval())
+        return r[1]
+    
+    return binary_crossentropy
+
+
 if __name__ == '__main__':
     # use argparser??
     t0 = time.time()
@@ -142,6 +175,8 @@ if __name__ == '__main__':
             main_log.info('building model is completed')
 
             model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
+            # model.compile(loss=get_loss(), optimizer=Adam(lr=fe_lr))
+            main_log.debug('model compilation is completed')
 
             # is it need to generate the ground truth data in validation_data part??
             history = model.fit_generator(
@@ -156,8 +191,13 @@ if __name__ == '__main__':
                 ]
             )
 
-            for ele in history.history:
-                main_log.debug('%s: %s' % (ele, history.history[ele]))
+            # for ele in history.history:
+            #     main_log.debug('%s: %s' % (ele, history.history[ele]))
+
+            for kind in history.history:
+                main_log.debug('%s :' % kind)
+                for i in range(len(history.history[kind])):
+                    main_log.debug('%d th : %s' % (i, history.history[kind][i]))
 
             # # reopen those std file
             # sys.stdout.close()

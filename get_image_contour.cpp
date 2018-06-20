@@ -11,7 +11,7 @@ using namespace std;
 using namespace cv;
 namespace fs = std::experimental::filesystem;
 
-void get_image_contour(fs::path img_path, double threshold_0 = 50., double threshold_1 = 100.);
+void get_image_contour(fs::path img_path, double threshold_0 = 50., double threshold_1 = 100., bool is_inverted = true);
 
 // global variables
 
@@ -81,6 +81,8 @@ int main(int argc, char *argv[])
                 cout << "create the dir = " << fe_mixed_img_dir_path << endl;
             }
 
+            bool is_inverted = true;
+
             for (fs::path contour_data_path : fs::directory_iterator(fe_pred_dir_path))
             {
                 // read the contour_data
@@ -121,10 +123,17 @@ int main(int argc, char *argv[])
                 }
 
                 fs::path contour_stem = contour_data_path.stem();
-                imwrite((fe_pred_img_dir_path / contour_stem + ".png").c_str(), pred_img);
-
                 // combine the pred_img with the contour_img(ground truth)
                 Mat contour_img = imread((contour_img_dir_path / contour_stem + ".png").c_str(), IMREAD_GRAYSCALE);
+
+                if (is_inverted)
+                {
+                    threshold(pred_img, pred_img, 128., 255, THRESH_BINARY_INV);
+                    threshold(contour_img, contour_img, 128., 255, THRESH_BINARY_INV);
+                }
+
+                imwrite((fe_pred_img_dir_path / contour_stem + ".png").c_str(), pred_img);
+
                 Mat mixed_img;
                 hconcat(contour_img, pred_img, mixed_img);
 
@@ -136,7 +145,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void get_image_contour(fs::path img_path, double threshold_0, double threshold_1)
+void get_image_contour(fs::path img_path, double threshold_0, double threshold_1, bool is_inverted)
 {
     Mat img = imread(img_path.c_str(), IMREAD_COLOR);
 
@@ -200,6 +209,12 @@ void get_image_contour(fs::path img_path, double threshold_0, double threshold_1
 
         // contour data
         contour_data_file << (float)p.x / resized_width << " " << (float)p.y / resized_height << "\n";
+    }
+
+    if (is_inverted)
+    {
+        threshold(canny_img, canny_img, 128., 255, THRESH_BINARY_INV);
+        threshold(contour_img, contour_img, 128., 255, THRESH_BINARY_INV);
     }
 
     cvtColor(canny_img, canny_img, COLOR_GRAY2BGR);
