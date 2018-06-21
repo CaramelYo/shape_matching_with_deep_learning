@@ -5,6 +5,7 @@ import time
 import numpy as np
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint
+from keras import losses
 import keras.backend as K
 import tensorflow as tf
 
@@ -25,7 +26,7 @@ fe_model_weight_path = os.path.join(fe_dir, 'fe_model_weight.h5')
 # nn setting
 fe_lr = 0.00001
 fe_loss = 'mse'
-fe_epo = 1000
+fe_epo = 3000
 # batch_size must be 1 because the length of contours are different
 fe_batch_size = 1
 
@@ -38,7 +39,7 @@ main_log = logging.getLogger('main_log')
 
 # log message to stdout
 console = logging.StreamHandler(sys.stdout)
-console.setLevel(logging.DEBUG)
+console.setLevel(logging.INFO)
 console.setFormatter(logging.Formatter('%(message)s'))
 main_log.addHandler(console)
 
@@ -152,7 +153,15 @@ def get_loss():
         # main_log.debug(r[1].eval())
         return r[1]
     
-    return binary_crossentropy
+    def mse_mse(y_true, y_pred):
+        y_true_temp = (tf.concat([y_true[:, :, 1:, :], y_true[:, :, 0:1, :]], 2)) - y_true
+        y_pred_temp = (tf.concat([y_pred[:, :, 1:, :], y_pred[:, :, 0:1, :]], 2)) - y_pred
+
+        loss = losses.mean_squared_error(y_true, y_pred) + losses.mean_squared_error(y_true_temp, y_pred_temp)
+
+        return loss
+    
+    return mse_mse
 
 
 if __name__ == '__main__':
@@ -174,9 +183,9 @@ if __name__ == '__main__':
             )
             main_log.info('building model is completed')
 
-            model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
-            # model.compile(loss=get_loss(), optimizer=Adam(lr=fe_lr))
-            main_log.debug('model compilation is completed')
+            # model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
+            model.compile(loss=get_loss(), optimizer=Adam(lr=fe_lr))
+            main_log.info('model compilation is completed')
 
             # is it need to generate the ground truth data in validation_data part??
             history = model.fit_generator(
@@ -194,10 +203,14 @@ if __name__ == '__main__':
             # for ele in history.history:
             #     main_log.debug('%s: %s' % (ele, history.history[ele]))
 
+            history_str = ''
             for kind in history.history:
                 main_log.debug('%s :' % kind)
                 for i in range(len(history.history[kind])):
-                    main_log.debug('%d th : %s' % (i, history.history[kind][i]))
+                    # main_log.debug('%d th : %s' % (i, history.history[kind][i]))
+                    history_str += '%d th : %s\n' % (i, history.history[kind][i])
+                
+                main_log.debug(history_str)
 
             # # reopen those std file
             # sys.stdout.close()
