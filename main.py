@@ -192,7 +192,7 @@ if __name__ == '__main__':
                 generate_contour_from_dir(fe_training_dir, fe_batch_size),
                 steps_per_epoch=n_training / fe_batch_size,
                 epochs=fe_epo,
-                validation_data=generate_contour_from_dir(fe_training_dir, fe_batch_size),
+                validation_data=generate_contour_from_dir(fe_validation_dir, fe_batch_size),
                 validation_steps=n_validation / fe_batch_size,
                 callbacks=[
                     TensorBoard(log_dir=fe_tb_model_log_dir, batch_size=fe_batch_size),
@@ -235,7 +235,7 @@ if __name__ == '__main__':
             )
             main_log.info('building model is completed')
 
-            model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
+            model.compile(loss=get_loss(), optimizer=Adam(lr=fe_lr))
 
             # test the loss
             scores = model.evaluate_generator(
