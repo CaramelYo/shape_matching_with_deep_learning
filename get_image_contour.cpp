@@ -6,6 +6,7 @@
 #include <experimental/filesystem>
 #include <fstream>
 #include <sstream>
+#include <exception>
 
 #include "mat_image.h"
 
@@ -17,6 +18,8 @@ mat_image output_contour_image(const Size &img_size, const vector<Point2i> &cont
 mat_image output_contour_order_image(const Size &img_size, const vector<Point2i> &contour, const uint8_t &b = 255, const uint8_t &g = 0, uint8_t r = 0);
 void output_contour_data(const fs::path &dir_path, const int &img_counter, const vector<Point2i> &contour);
 void get_contour_image(fs::path img_path, double threshold_0 = 40., double threshold_1 = 80., bool is_inverted = true);
+void check_dir_exist(initializer_list<fs::path> dir_path_list);
+vector<Point2i> get_contour_data_from_file(fs::path path, const char del = ' ');
 
 // global variables
 
@@ -28,12 +31,15 @@ fs::path contour_order_img_dir_path = data_dir / "contour_order_img";
 fs::path contour_data_dir_path = data_dir / "contour_data";
 fs::path pre_result_img_dir_path = data_dir / "preprocessing_image";
 
-fs::path fe_dir = "feature_extraction";
-fs::path fe_pred_dir_path = data_dir / fe_dir / "pred";
-fs::path fe_test_dir_path = data_dir / fe_dir / "test";
-fs::path fe_pred_img_dir_path = data_dir / fe_dir / "pred_img";
-fs::path fe_pred_order_img_dir_path = data_dir / fe_dir / "pred_order_img";
-fs::path fe_mixed_img_dir_path = data_dir / fe_dir / "mixed_img";
+fs::path fe_dir = data_dir / "feature_extraction";
+fs::path fe_pred_dir_path = fe_dir / "pred";
+fs::path fe_pred_img_dir_path = fe_dir / "pred_img";
+fs::path fe_pred_order_img_dir_path = fe_dir / "pred_order_img";
+fs::path fe_mixed_img_dir_path = fe_dir / "mixed_img";
+fs::path fe_selected_contour_dir = fe_dir / "40_80" / "selected_40_80_contour";
+fs::path fe_selected_pre_img_dir = fe_dir / "40_80" / "selected_40_80_preprocessing_image";
+fs::path fe_selected_fixed_num_contour_dir = fe_dir / "40_80" / "selected_fixed_num_40_80_contour";
+fs::path fe_selected_fixed_num_pre_img_dir = fe_dir / "40_80" / "selected_fixed_num_40_80_preprocessing_image";
 
 int img_counter = 0;
 
@@ -49,86 +55,34 @@ int main(int argc, char *argv[])
         if (str_argv_1 == "create_contour_data")
         {
             // check whether those directories of result exist
-            if (!fs::is_directory(contour_img_dir_path))
-            {
-                fs::create_directory(contour_img_dir_path);
-                cout << "create the dir = " << contour_img_dir_path << endl;
-            }
-
-            if (!fs::is_directory(contour_order_img_dir_path))
-            {
-                fs::create_directory(contour_order_img_dir_path);
-                cout << "create the dir = " << contour_order_img_dir_path << endl;
-            }
-
-            if (!fs::is_directory(contour_data_dir_path))
-            {
-                fs::create_directory(contour_data_dir_path);
-                cout << "create the dir = " << contour_data_dir_path << endl;
-            }
-
-            if (!fs::is_directory(pre_result_img_dir_path))
-            {
-                fs::create_directory(pre_result_img_dir_path);
-                cout << "create the dir = " << pre_result_img_dir_path << endl;
-            }
+            check_dir_exist({contour_img_dir_path,
+                             contour_order_img_dir_path,
+                             contour_data_dir_path,
+                             pre_result_img_dir_path});
 
             // read img name from dir
+            img_counter = 0;
+
             for (fs::path img_path : fs::directory_iterator(img_dir_path))
-            {
                 get_contour_image(img_path);
-            }
         }
         else if (str_argv_1 == "create_contour_img")
         {
             // check whether those directories of result exist
-            if (!fs::is_directory(fe_pred_img_dir_path))
-            {
-                fs::create_directory(fe_pred_img_dir_path);
-                cout << "create the dir = " << fe_pred_img_dir_path << endl;
-            }
-
-            if (!fs::is_directory(fe_pred_order_img_dir_path))
-            {
-                fs::create_directory(fe_pred_order_img_dir_path);
-                cout << "create the dir = " << fe_pred_order_img_dir_path << endl;
-            }
-
-            if (!fs::is_directory(fe_mixed_img_dir_path))
-            {
-                fs::create_directory(fe_mixed_img_dir_path);
-                cout << "create the dir = " << fe_mixed_img_dir_path << endl;
-            }
+            check_dir_exist({fe_pred_img_dir_path,
+                             fe_pred_order_img_dir_path,
+                             fe_mixed_img_dir_path});
 
             bool is_inverted = true;
 
             for (fs::path contour_data_path : fs::directory_iterator(fe_pred_dir_path))
             {
-                // read the contour_data
-                ifstream contour_data_file(contour_data_path.c_str());
-
-                vector<Point2i> contour;
-                const char del = ' ';
-                string line;
-                while (getline(contour_data_file, line))
-                {
-                    // split the line with ' '
-                    vector<string> elems;
-                    stringstream s_line(line);
-                    string elem;
-                    while (getline(s_line, elem, del))
-                    {
-                        elems.push_back(elem);
-                    }
-
-                    assert(elems.size() == 2);
-
-                    contour.push_back(Point2i(stof(elems[0]) * resized_width, stof(elems[1]) * resized_height));
-                }
+                vector<Point2i> contour = get_contour_data_from_file(contour_data_path);
 
                 mat_image pred_img = output_contour_image(Size(resized_width, resized_height), contour);
 
                 fs::path contour_stem = contour_data_path.stem();
+
                 // combine the pred_img with the contour_img(ground truth)
                 Mat contour_img = imread((contour_img_dir_path / contour_stem + ".png").c_str(), IMREAD_GRAYSCALE);
 
@@ -145,6 +99,116 @@ int main(int argc, char *argv[])
 
                 imwrite((fe_mixed_img_dir_path / contour_stem + ".png").c_str(), mixed_img);
             }
+        }
+        else if (str_argv_1 == "fixed_n_contour_data")
+        {
+            check_dir_exist({fe_selected_fixed_num_contour_dir,
+                             fe_selected_fixed_num_pre_img_dir});
+
+            bool is_inverted = true;
+
+            // "- 1" is used to ensure the length of new_contour_data is n(1500)
+            // because I will append the first contour point to the last line of new_contour_data
+            int fixed_n = 1500 - 1;
+            // preserve the contour points in corners
+            double point_length = 3.;
+
+            for (fs::path contour_data_path : fs::directory_iterator(fe_selected_contour_dir))
+            {
+                vector<Point2i> contour = get_contour_data_from_file(contour_data_path);
+
+                if (contour.size() < fixed_n)
+                {
+                    cerr << "contour size " << contour.size() << " is smaller than fixed_n " << fixed_n << endl;
+                    exit(0);
+                }
+
+                // calculate the total "length" of contour (pdf)
+                vector<double> contour_lengths;
+                double total_contour_length = 0.;
+
+                total_contour_length += point_length;
+                contour_lengths.push_back(total_contour_length);
+
+                for (size_t i = 0; i < contour.size() - 1; ++i)
+                {
+                    double d = norm(contour[i + 1] - contour[i]);
+
+                    total_contour_length += d + point_length;
+                    contour_lengths.push_back(total_contour_length);
+                }
+
+                // the length between the first and last points of contour
+                total_contour_length += norm(contour[0] - contour[contour.size() - 1]) + point_length;
+                contour_lengths.push_back(total_contour_length);
+
+                double step = total_contour_length / fixed_n;
+                size_t contour_lengths_size = contour_lengths.size(), contour_size = contour.size();
+
+                assert(contour_lengths_size - 1 == contour_size);
+
+                // create a new(fixed number) contour
+                vector<Point2i> new_contour;
+                double distance = 0.;
+                int contour_lengths_i = 0;
+
+                for (int i = 0; i < fixed_n; ++i)
+                {
+                    distance += step;
+
+                    while (contour_lengths[contour_lengths_i] < distance && contour_lengths_i < contour_lengths_size)
+                        ++contour_lengths_i;
+
+                    Point2i p;
+
+                    contour_lengths_i < contour_lengths_size ? contour_lengths_i : --contour_lengths_i;
+
+                    double length = contour_lengths[contour_lengths_i], t = length - distance;
+
+                    if (t < point_length)
+                    {
+                        // on the point
+                        p = contour[contour_lengths_i < contour_size ? contour_lengths_i : contour_size - 1];
+                    }
+                    else
+                    {
+                        // on the edge
+                        Point2i p0 = contour[contour_lengths_i - 1], p1;
+
+                        // contour_size == contour_lengths_size - 1
+                        p1 = contour_lengths_i < contour_size ? contour[contour_lengths_i] : contour[0];
+
+                        Point2i dv = p0 - p1;
+                        double d = norm(dv);
+                        t -= point_length;
+
+                        p = p1 + t / d * dv;
+                    }
+
+                    new_contour.push_back(p);
+                }
+
+                fs::path contour_stem = contour_data_path.stem();
+
+                output_contour_data(fe_selected_fixed_num_contour_dir, stoi(contour_stem), new_contour);
+
+                mat_image new_contour_img = output_contour_image(Size(resized_width, resized_height), new_contour);
+
+                if (is_inverted)
+                    threshold(new_contour_img.img, new_contour_img.img, 128., 255, THRESH_BINARY_INV);
+
+                cvtColor(new_contour_img.img, new_contour_img.img, COLOR_GRAY2BGR);
+
+                Mat pre_result_img = imread((fe_selected_pre_img_dir / contour_stem += ".png").c_str(), IMREAD_COLOR);
+                hconcat(pre_result_img, new_contour_img.img, pre_result_img);
+
+                imwrite((fe_selected_fixed_num_pre_img_dir / contour_stem += ".png").c_str(), pre_result_img);
+            }
+        }
+        else
+        {
+            cerr << "unexpected sys argv[1] = " << str_argv_1 << endl;
+            exit(0);
         }
     }
 
@@ -195,21 +259,19 @@ mat_image output_contour_order_image(const Size &img_size, const vector<Point2i>
 
 void output_contour_data(const fs::path &dir_path, const int &img_counter, const vector<Point2i> &contour)
 {
-    ofstream contour_data((dir_path / to_string(img_counter)) + ".txt");
+    ofstream file((dir_path / to_string(img_counter)) + ".txt");
 
     for (size_t i = 0; i < contour.size(); ++i)
     {
         Point2i p = contour[i];
-
-        // contour data
-        contour_data << (float)p.x / resized_width << " " << (float)p.y / resized_height << "\n";
+        file << (float)p.x / resized_width << " " << (float)p.y / resized_height << "\n";
     }
 
     // output the first point at the last line of the data to preserve the continuity between the first and last points
     Point2i p = contour[0];
-    contour_data << (float)p.x / resized_width << " " << (float)p.y / resized_height << "\n";
+    file << (float)p.x / resized_width << " " << (float)p.y / resized_height << "\n";
 
-    contour_data.close();
+    file.close();
 
     return;
 }
@@ -283,4 +345,40 @@ void get_contour_image(fs::path img_path, double threshold_0, double threshold_1
     imwrite((pre_result_img_dir_path / to_string(img_counter++) += img_path.extension()).c_str(), pre_result_img);
 
     return;
+}
+
+void check_dir_exist(initializer_list<fs::path> dir_path_list)
+{
+    for (fs::path dir_path : dir_path_list)
+    {
+        if (!fs::is_directory(dir_path))
+        {
+            fs::create_directory(dir_path);
+            cout << "create the dir = " << dir_path << endl;
+        }
+    }
+}
+
+vector<Point2i> get_contour_data_from_file(fs::path path, const char del)
+{
+    // read the contour_data
+    ifstream file(path.c_str());
+    vector<Point2i> contour;
+
+    string line;
+    while (getline(file, line))
+    {
+        // split the line with del
+        vector<string> elems;
+        stringstream s_line(line);
+        string elem;
+        while (getline(s_line, elem, del))
+            elems.push_back(elem);
+
+        assert(elems.size() == 2);
+
+        contour.push_back(Point2i(stof(elems[0]) * resized_width, stof(elems[1]) * resized_height));
+    }
+
+    return contour;
 }
