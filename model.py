@@ -70,7 +70,7 @@ class Feature_extraction_model:
                 
                     model.add(Activation(Feature_extraction_model.conv_activation, name='act' + str(layer_counter)))
 
-                    layer_counter = layer_counter + 1
+                    layer_counter += 1
 
             # model.add(
             #     Conv2D(filter=1, kernel_size=(2, 1), strides=(1, 1), padding='same',
@@ -106,7 +106,7 @@ class Feature_extraction_model:
                 
                 model.add(Activation('sigmoid', name='act' + str(layer_counter)))
 
-                layer_counter = layer_counter + 1
+                layer_counter += 1
 
             # load the previous parameters
             if weight_path and os.path.isfile(weight_path):
@@ -117,33 +117,40 @@ class Feature_extraction_model:
             
             return model
         else:
-            logging.error('Feature_extraction_model build error: unexpected method = %s' % method)
+            main_log.error('Feature_extraction_model build error: unexpected method = %s' % method)
             return
 
     conv_activation = 'relu'
     n_conv_filters = [64, 128, 256, 512]
     n_conv_layer = 4
     deconv_activation = 'relu'
-    n_deconv_filters = [512, 256, 128, 64, 16, 4]
-    n_deconv_layer = 6
+    n_deconv_filters = [512, 256, 128, 64, 4]
+    n_deconv_layer = 4
 
 
 class Feature_L2_norm:
-    def build(model=None):
-        if model:
-            model.add(Lambda(lambda x: K.l2_normalize(x, axis=1)))
-        else:
-            main_log.error('model = ' % model)
-            exit()
+    # def build(model=None):
+    #     model = Sequential()
+    #     model.add(Lambda(lambda x: K.l2_normalize(x, axis=1)))
+        
+    #     return model
+    def run(a):
+        sess = tf.InteractiveSession()
+        
+        norm_a = tf.nn.l2_normalize(a, axis=1).eval()
+        
+        sess.close()
 
-        return model
+        return norm_a
 
 
 class Feature_correlation:
     # def build(model=None):
-    def build(a, b):
+    # def build(a, b):
+    def run(a, b):
         # tensorflow
         sess = tf.InteractiveSession()
+        
         a_shape = tf.shape(a)
         b_shape = tf.shape(b)
 
@@ -152,25 +159,23 @@ class Feature_correlation:
 
         correlation = tf.matmul(b1, a1)
 
-        re_correlation = tf.reshape(correlation, [a_shape[0], a_shape[1], b_shape[2], a_shape[1] * a_shape[2]])
-
-        re_correlation_value = re_correlation.eval()
+        re_correlation = tf.reshape(correlation, [a_shape[0], a_shape[1], b_shape[2], a_shape[1] * a_shape[2]]).eval()
 
         sess.close()
 
-        return re_correlation_value
+        return re_correlation
 
 
 class Feature_regression:
     def build(weight_path=None, is_bn=True):
         model = Sequential()
 
-        layer_counter = 0
+        layer_counter = 1
 
         # conv
         for i in range(Feature_regression.n_conv_layer):
             model.add(Conv2D(
-                filters=Feature_regression.n_conv_filters[0], kernel_size=Feature_regression.n_conv_kernel_sizes[0], strides=(1, 1), padding='same',
+                filters=Feature_regression.n_conv_filters[i], kernel_size=Feature_regression.n_conv_kernel_sizes[i], strides=(1, 1), padding='same',
                 name='conv' + str(layer_counter)))
         
             if is_bn:
@@ -188,7 +193,7 @@ class Feature_regression:
             main_log.info('model weight exists')
             model.load_weights(weight_path, by_name=True)
 
-        model.summary()
+        # model.summary()
     
         return model
         
@@ -202,10 +207,25 @@ class Feature_regression:
 
 def get_loss(a, b):
     def mse_mse(y_true, y_pred):
-        y_true_temp = (tf.concat([y_true[:, :, 1:, :], y_true[:, :, 0:1, :]], 2)) - y_true
-        y_pred_temp = (tf.concat([y_pred[:, :, 1:, :], y_pred[:, :, 0:1, :]], 2)) - y_pred
+        # y_true_temp = (tf.concat([y_true[:, :, 1:, :], y_true[:, :, 0:1, :]], 2)) - y_true
+        # y_pred_temp = (tf.concat([y_pred[:, :, 1:, :], y_pred[:, :, 0:1, :]], 2)) - y_pred
 
-        loss = losses.mean_squared_error(y_true, y_pred) + losses.mean_squared_error(y_true_temp, y_pred_temp)
+        # loss = losses.mean_squared_error(y_true, y_pred) + losses.mean_squared_error(y_true_temp, y_pred_temp)
+
+        sess = tf.InteractiveSession()
+        main_log.debug(tf.shape(y_pred)[0])
+        if y_pred.shape[0] == '?':
+            main_log.debug('ya')
+
+        if y_pred.shape[0] is not None:
+            main_log.debug('yo')
+            main_log.debug(y_pred)
+            main_log.debug(type(y_pred))
+            main_log.debug(y_pred.eval())
+
+            loss = losses.mean_squared_error(y_true, y_pred)
+
+        sess.close()
 
         return loss
     
@@ -216,10 +236,19 @@ def get_loss(a, b):
 
         # inverse a or b ??
 
-        a1 = tf.squeeze(a[:, :, y_pred[0], :])
-        a2 = tf.squeeze(a[:, :, y_pred[1], :])
-        b1 = tf.squeeze(b[:, :, y_pred[2], :])
-        b2 = tf.squeeze(b[:, :, y_pred[3], :])
+        sess = tf.InteractiveSession()
+        main_log.debug(a.shape)
+
+        main_log.debug(y_pred.eval()[0, 1])
+        main_log.debug(y_pred.eval()[0, 1].shape)
+
+        aa = a[:, :, y_pred.eval()[0] - 1, :]
+        main_log.debug(aa)
+
+        a1 = tf.squeeze(a[:, :, y_pred.eval()[0], :])
+        a2 = tf.squeeze(a[:, :, y_pred.eval()[1], :])
+        b1 = tf.squeeze(b[:, :, y_pred.eval()[2], :])
+        b2 = tf.squeeze(b[:, :, y_pred.eval()[3], :])
 
         d = subtract([b1, a1])
         dx = d[0]
@@ -249,7 +278,7 @@ def get_loss(a, b):
         ])
         tf_affine = tf.constant(affine, dtype=tf.float32)
 
-        homo = np.ones((1, tf.shape(a)[1].eval()))
+        homo = np.ones((1, tf.shape(a).eval()[1]))
         tf_homo = tf.constant(homo, dtype=tf.float32)
 
         homo_a = concatenate([a, tf_homo], axis=0)
@@ -287,7 +316,7 @@ def get_loss(a, b):
         
         convexity_loss = tf.Variable(1.0, dtype=tf.float32)
         fc_loss = tf.Variable(0, dtype=tf.float32)
-        sess = tf.InteractiveSession()
+        # sess = tf.InteractiveSession()
         sess.run(tf.global_variables_initializer())
 
         # how to define the bijective function??
@@ -317,7 +346,7 @@ def get_loss(a, b):
 
         return convexity_loss
 
-    return matching_loss
+    return mse_mse
 
 
 class Shape_matching_model:
@@ -350,36 +379,55 @@ class Shape_matching_model:
         self.regression_lr = 0.00001
 
     def run(self, a, b):
-        fe_a = self.fe_model.predict_on_batch()
-        fe_b = self.fe_model.predict_on_batch()
+        fe_a = self.fe_model.predict_on_batch(a)
+        fe_b = self.fe_model.predict_on_batch(b)
 
         # build other model
-        if not self.l2_norm_model:
-            self.l2_norm_model = Feature_L2_norm.build()
+        # self.l2_norm_model = Feature_L2_norm.build()
 
-        if not self.regression_model:
-            self.regression_model = Feature_regression.build()
+        self.regression_model = Feature_regression.build()
 
-        if not self.ReLU:
-            self.ReLU = 'relu'
+        self.ReLU = 'relu'
 
         if self.is_normalized_feature:
-            fe_a = self.l2_norm_model.predict_on_batch(fe_a)
-            fe_b = self.l2_norm_model.predict_on_batch(fe_b)
-        
-        # build the correlation model
-        if not self.correlation_model:
-            self.correlation_model = Feature_correlation.build(fe_a, fe_b)
+            # fe_a = self.l2_norm_model.predict_on_batch(fe_a)
+            # fe_b = self.l2_norm_model.predict_on_batch(fe_b)
+            fe_b = Feature_L2_norm.run(fe_a)
+            fe_b = Feature_L2_norm.run(fe_b)
 
-        correlation = self.correlation_model.predict_on_batch(fe_a, fe_b)
+        # build the correlation model
+        # self.correlation_model = Feature_correlation.build(fe_a, fe_b)
+
+        # correlation = self.correlation_model.predict_on_batch(fe_a, fe_b)
+
+        correlation = Feature_correlation.run(fe_a, fe_b)
 
         if self.is_normalized_match:
-            correlation = self.l2_norm_model(correlation)
+            # correlation = self.l2_norm_model(correlation)
+            correlation = Feature_L2_norm.run(correlation)
         
         # the indexes of a1, a2, b1, b2
         # args = self.regression_model.predict_on_batch(correlation)
 
-        self.regression_model.compile(loss=get_loss(), optimizer=Adam(lr=self.regression_lr))
+        self.regression_model.compile(loss=get_loss(a, b), optimizer=Adam(lr=self.regression_lr))
         main_log.info('regression model compilation is completed')
+
+        # y is useless??
+        # sess = tf.InteractiveSession()
+        # r = self.regression_model.predict_on_batch(correlation)
+        # main_log.debug(r)
+        # main_log.debug(r.shape)
+        # sess.close()
+        # exit()
+
+        history = self.regression_model.fit(correlation, correlation, batch_size=1, epochs=1, verbose=1)
+
+        history_str = ''
+        for kind in history.history:
+            main_log.debug('%s :' % kind)
+            for i in range(len(history.history[kind])):
+                history_str += '%d th : %s\n' % (i, history.history[kind][i])
+
+            main_log.debug(history_str)
 
         # history = self.regression_model.fit_generator()

@@ -12,3 +12,6 @@ test.py
 
 ## progress_report dir
 progress_report/
+
+## pycache
+__pycache__/

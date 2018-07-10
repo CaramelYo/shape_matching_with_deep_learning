@@ -9,7 +9,7 @@ from keras import losses
 import keras.backend as K
 import tensorflow as tf
 
-from model import Feature_extraction_model
+from model import Feature_extraction_model, Shape_matching_model
 
 # global variable
 
@@ -39,7 +39,7 @@ main_log = logging.getLogger('main_log')
 
 # log message to stdout
 console = logging.StreamHandler(sys.stdout)
-console.setLevel(logging.INFO)
+console.setLevel(logging.DEBUG)
 console.setFormatter(logging.Formatter('%(message)s'))
 main_log.addHandler(console)
 
@@ -267,6 +267,34 @@ if __name__ == '__main__':
                 del preds, f
 
             del n_test, model, scores
+        elif sys.argv[1] == 'train':
+            # n_training = count_data(fe_training_dir)
+            # n_validation = count_data(fe_validation_dir)
+            # main_log.info('n_training = %d \nn_validation = %d' % (n_training, n_validation))
+
+            model = Shape_matching_model()
+            for a, b in generate_contour_from_dir(fe_training_dir, fe_batch_size):
+                model.run(a, b)
+                exit()
+
+            # main_log.info('building model is completed')
+
+            # # model.compile(loss=fe_loss, optimizer=Adam(lr=fe_lr))
+            # model.compile(loss=get_loss(), optimizer=Adam(lr=fe_lr))
+            # main_log.info('model compilation is completed')
+
+            # # is it need to generate the ground truth data in validation_data part??
+            # history = model.fit_generator(
+            #     generate_contour_from_dir(fe_training_dir, fe_batch_size),
+            #     steps_per_epoch=n_training / fe_batch_size,
+            #     epochs=fe_epo,
+            #     validation_data=generate_contour_from_dir(fe_validation_dir, fe_batch_size),
+            #     validation_steps=n_validation / fe_batch_size,
+            #     callbacks=[
+            #         TensorBoard(log_dir=fe_tb_model_log_dir, batch_size=fe_batch_size),
+            #         ModelCheckpoint(fe_model_weight_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, period=1)
+            #     ]
+            # )
 
     main_log.info('time cost = %s' % (time.time() - t0))
     del t0
