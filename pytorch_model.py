@@ -313,7 +313,7 @@ class FeatureRegression(nn.Module):
 
         # summary
         if is_summary:
-            summary(self.model, input_size=(512, 2, 1000))
+            summary(self.model, input_size=(2992, 2, 1496))
 
         main_log.debug('creating feature regression model is completed')
 
@@ -324,10 +324,11 @@ class FeatureRegression(nn.Module):
     
     data_height = 2
 
-    n_conv_layer = 6
-    n_conv_channels = [-1, 256, 128, 64, 32, 8, 4]
+    n_conv_layer = 7
+    # 2 * 1500
+    n_conv_channels = [2992, 2048, 1024, 512, 256, 64, 16, 4]
     # n_conv_kernel_sizes = [(2, 11), (2, 11), (2, 7), (2, 7), (2, 3), (2, 3)]
-    n_conv_kernel_sizes = [(2, 3), (2, 3), (2, 7), (2, 7), (2, 11), (2, 11)]
+    n_conv_kernel_sizes = [(2, 3), (2, 3), (2, 3), (2, 7), (2, 7), (2, 11), (2, 11)]
 
 
 class CNNGeometric(nn.Module):

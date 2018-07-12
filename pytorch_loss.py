@@ -32,17 +32,77 @@ class ShapeMatchingLoss(nn.Module):
         #     self.P = self.P.cuda();
 
     def forward(self, a, b, args):
-        main_log.debug(args)
+        # # work!
+        # loss = nn.functional.mse_loss(args[0, :2], args[0, 2:])
 
-        a1 = a[:, :, :, args[0]]
-        a2 = a[:, :, :, args[1]]
-        b1 = b[:, :, :, args[2]]
-        b2 = b[:, :, :, args[3]]
+        # exit()
 
-        main_log.debug(a1)
-        main_log.debug(a2)
-        main_log.debug(b1)
-        main_log.debug(b2)
+        # # work!
+        # loss1 = torch.add(args[0, 0], args[0, 1])
+        # loss2 = torch.add(args[0, 2], args[0, 3])
+        # loss = torch.add(loss1, torch.neg(loss2))
+
+        # loss_fn = nn.Conv2d(10, 10, 2, dtype=torch.long)
+
+        main_log.debug('yo')
+        # main_log.debug(args.size())
+
+        # can't work!
+        # long_args = args.type(torch.long)
+
+        # # work!
+        # args = args.squeeze()
+        # args = args.mul(43)        
+        # # main_log.debug(args)
+        # # main_log.debug(long_args)
+
+        loss = torch.tensor(0., requires_grad=True)
+
+        # for i in range(args.size()[0] - 1):
+        #     loss = loss.add(args[i].cpu().mul(i))
+        #     # loss = loss.add(torch.add(args[i].cpu(), args[i + 1].cpu().pow(2)))
+
+        # new_tensor = torch.Tensor.new_zeros(a.size(), dtype=torch.long)
+        # new_tensor = torch.tensor((), dtype=torch.long)
+        # new_tensor = new_tensor.new_zeros(a.size())
+
+        # main_log.debug(args)
+
+        # for i in range(int(args.size()[0] / 2)):
+        #     new_tensor[args[2 * i].type(torch.long), args[2 * i + 1].type(torch.long)] = 1
+        
+        # new_tensor = new_tensor.type(torch.float32)
+        
+        # loss = loss.add(a.cpu().mul(new_tensor).norm())
+
+        # # test if => work!
+        # args = args.squeeze()
+        # main_log.debug(args)
+        # for i in range(args.size()[0]):
+        #     args[i] = args[i] if args[i] > 0.2 else 0.
+        
+        # for i in range(args.size()[0]):
+        #     loss = loss.add(args[i].cpu())
+
+        # test element-wise max
+        args = args.squeeze()
+        a = args[:2]
+        b = args[2:]
+        c = torch.max(a, b).cpu()
+        for i in range(c.size()[0]):
+            loss = loss.add(c[i])
+
+        # loss won't be upgraded
+        # np_args = args.data.cpu().numpy()
+        # np_int_args = np_args.astype(int)
+
+        # a1 = a[:, :, :, np_int_args[0][0]].squeeze().cpu()
+        # a2 = a[:, :, :, np_int_args[0][1]].squeeze().cpu()
+        # b1 = b[:, :, :, np_int_args[0][2]].squeeze().cpu()
+        # b2 = b[:, :, :, np_int_args[0][3]].squeeze().cpu()
+
+        # loss = torch.tensor(0., requires_grad=True)
+        # loss = loss.add((a1 + a2 + b1 + b2).norm())
 
 
         # # expand grid according to batch size

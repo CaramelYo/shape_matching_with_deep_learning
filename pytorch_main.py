@@ -218,13 +218,17 @@ def fr_train(epoch, model, loss, optimizer, use_cuda=True):
         # train_loss_value += loss_value.data.cpu().numpy()[0]
         train_loss_value += loss_value.data.cpu().numpy()
 
+        # main_log.debug(loss_value.data[0])
+
         main_log.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t\tLoss: {:.6f}'.format(
             epoch, counter, total,
-            100. * counter / total, loss_value.data[0]))
+            100. * counter / total, loss_value.data))
+            # 100. * counter / total, loss_value.data[0, 0]))
     
     train_loss_value /= total
 
     main_log.info('Train set: Average loss: {:.4f}'.format(train_loss_value))
+    # main_log.info('Train set: Average loss: {:.4f}'.format(train_loss_value[0, 0]))
     return train_loss_value
 
 
@@ -239,8 +243,8 @@ def fr_test(model, loss, use_cuda=True):
         tensor_xs = torch.tensor(xs).to(device)
         tensor_ys = torch.tensor(ys).to(device)
 
-        args = model(xs, ys)
-        loss_value = loss(xs, ys, args)
+        args = model(tensor_xs, tensor_ys)
+        loss_value = loss(tensor_xs, tensor_ys, args)
         # pred = model(tensor_xs)
         # loss_value = loss(pred, tensor_xs)
         # test_loss_value += loss_value.data.cpu().numpy()[0]
@@ -249,6 +253,7 @@ def fr_test(model, loss, use_cuda=True):
     test_loss_value /= total
     
     main_log.info('Test set: Average loss: {:.4f}'.format(test_loss_value))
+    # main_log.info('Test set: Average loss: {:.4f}'.format(test_loss_value[0, 0]))
     return test_loss_value
 
 
@@ -312,7 +317,7 @@ if __name__ == '__main__':
 
                 # save the weight with best loss value
                 if test_loss_value < best_test_loss_value:
-                    torch.save(model.state_dict(), fr_model_weight_path)
+                    # torch.save(model.state_dict(), fr_model_weight_path)
                     
                     best_test_loss_value = test_loss_value
 
