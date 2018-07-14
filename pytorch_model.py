@@ -20,14 +20,24 @@ fe_dir = os.path.join(data_dir, 'feature_extraction')
 fe_model_weight_path = os.path.join(fe_dir, 'fe_model_weight.h5')
 
 
-def height_same_padding(padding, layer):
-    avg_padding = int(padding / 2)
-    is_odd = padding % 2 != 0
+# def height_same_padding(padding, layer):
+def same_padding_layer(layer, h_padding=-1, w_padding=-1):
+    # left, right, top, bottom
+    padding_size = [0, 0, 0, 0]
+    
+    if h_padding != -1:
+        h_avg_padding = int(h_padding / 2)
+        h_is_odd = h_padding % 2 != 0
 
-    if is_odd:
-        padding_size = [0, 0, avg_padding, avg_padding + 1]
-    else:
-        padding_size = [0, 0, avg_padding, avg_padding]
+        padding_size[2] = h_avg_padding
+        padding_size[3] = h_avg_padding + 1 if h_is_odd else h_avg_padding
+
+    if w_padding != -1:
+        w_avg_padding = int(w_padding / 2)
+        w_is_odd = w_padding % 2 != 0
+        
+        padding_size[0] = w_avg_padding
+        padding_size[1] = w_avg_padding + 1 if w_is_odd else w_avg_padding
 
     # create custom conv2d
     model = nn.Sequential()
@@ -37,74 +47,69 @@ def height_same_padding(padding, layer):
     return model
 
 
-def conv2d_height_same_padding(in_channels, out_channels, height, kernel_size, stride=1, dilation=1, groups=1, bias=True):
+def conv2d_same_padding(in_channels, out_channels, kernel_size, height=-1, width=-1, stride=1, dilation=1, groups=1, bias=True):
     # calculate the padding size
-    padding = 0
+    def type_check(var, index, var_name):
+        var_type = type(var)
 
-    if type(stride) == tuple:
-        padding += stride[0] * (height - 1) - height
-    elif type(stride) == int:
-        padding += stride * (height - 1) - height
-    else:
-        main_log.error('conv2d_height_same_padding error: the type of stride is unknown (%s)' % type(stride))
-        exit()
+        if var_type == tuple:
+            v = var[index]
+        elif var_type == int:
+            v = var
+        else:
+            main_log.error('conv2d_same_padding error: unexpected type of %s = %s' % (var_name, var_type))
 
-    if type(dilation) == tuple and type(kernel_size) == tuple:
-        padding += dilation[0] * (kernel_size[0] - 1) + 1
-    elif type(dilation) == int and type(kernel_size) == int:
-        padding += dilation * (kernel_size - 1) + 1
-    else:
-        main_log.error('conv2d_height_same_padding error: the types of dilation and kernel_size are unknown (%s and %s)' % (type(dilation), type(kernel_size)))
+        return v
 
-    # avg_padding = int(padding / 2)
-    # is_odd = padding % 2 != 0
+    def cal_padding(value, index):
+        padding = -1
 
-    # if is_odd:
-    #     padding_size = [0, 0, avg_padding, avg_padding + 1]
-    # else:
-    #     padding_size = [0, 0, avg_padding, avg_padding]
+        if value != -1:
+            s = type_check(stride, index, 'stride')
+            d = type_check(dilation, index, 'dilation')
+            k = type_check(kernel_size, index, 'kernel_size')
+            
+            padding = s * (value - 1) - value + d * (k - 1) + 1
+            
+        return padding
 
-    # # create custom conv2d
-    # model = nn.Sequential()
-    # model.add_module(nn.ZeroPad(padding_size))
-    # model.add_module(nn.Conv2d(in_channel, out_channel, kernel_size, stride=stride, padding=0, dilation=1, groups=groups, bias=bias))
+    h_padding = cal_padding(height, 0)
+    w_padding = cal_padding(width, 1)
 
-    # return model
-    return height_same_padding(padding, nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=0, dilation=1, groups=groups, bias=bias))
+    return same_padding_layer(nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=0, dilation=1, groups=groups, bias=bias), h_padding, w_padding)
 
 
-def conv2d_transpose_height_same_padding(in_channels, out_channels, height, kernel_size, stride=1, output_padding=0, dilation=1, groups=1, bias=True):
+def conv2d_transpose_same_padding(in_channels, out_channels, kernel_size, height=-1, width=-1, stride=1, output_padding=0, dilation=1, groups=1, bias=True):
     # calculate the padding size
-    padding = 0
 
-    temp_t = type(stride)
-    if temp_t == tuple:
-        padding += height * stride[0] - height - stride[0]
-    elif temp_t == int:
-        padding += height * stride - height - stride
-    else:
-        main_log.error('conv2d_transpose_height_same_padding error: the type of stride is unknown (%s)' % type(stride))
-        exit()
+    def type_check(var, index, var_name):
+        var_type = type(var)
 
-    temp_t = type(kernel_size)
-    if temp_t == tuple:
-        padding += kernel_size[0]
-    elif temp_t == int:
-        padding += kernel_size
-    else:
-        main_log.error('conv2d_transpose_height_same_padding error: the type of kernel_size is unknown (%s)' % type(kernel_size))
-        exit()
+        if var_type == tuple:
+            v = var[index]
+        elif var_type == int:
+            v = var
+        else:
+            main_log.error('conv2d_transpose_same_padding error: unexpected type of %s = %s' % (var_name, var_type))
 
-    temp_t = type(output_padding)
-    if temp_t == tuple:
-        padding += output_padding[0]
-    elif temp_t == int:
-        padding += output_padding
-    else:
-        main_log.error('conv2d_transpose_height_same_padding error: the type of output_padding is unknown (%s)' % type(output_padding))
-        exit()
+        return v
 
-    return height_same_padding(padding, nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=(padding, 0), output_padding=output_padding, groups=groups, bias=bias, dilation=dilation))
+    def cal_padding(value, index):
+        padding = -1
+
+        if value != -1:
+            s = type_check(stride, index, 'stride')
+            k = type_check(kernel_size, index, 'kernel_size')
+            o_p = type_check(output_padding, index, 'output_padding')
+
+            padding = value * s - value - s + k + o_p
+
+        return padding
+
+    h_padding = cal_padding(height, 0)
+    w_padding = cal_padding(width, 1)
+
+    return same_padding_layer(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=(h_padding, w_padding), output_padding=output_padding, groups=groups, bias=bias, dilation=dilation), h_padding, w_padding)
 
 
 class FeatureExtraction(torch.nn.Module):
@@ -135,7 +140,7 @@ class FeatureExtraction(torch.nn.Module):
                 'layer3',
                 'layer4']
             if last_layer == '':
-                last_layer = 'layer3'
+                last_layer = 'layer4'
             
             last_layer_idx = resnet_feature_layers.index(last_layer)
 
@@ -157,7 +162,7 @@ class FeatureExtraction(torch.nn.Module):
                 'layer3',
                 'layer4']
             if last_layer == '':
-                last_layer = 'layer3'
+                last_layer = 'layer4'
             
             last_layer_idx = resnet_feature_layers.index(last_layer)
 
@@ -183,7 +188,7 @@ class FeatureExtraction(torch.nn.Module):
                 for i in range(FeatureExtraction.n_conv_layer):
                     # self.model.add_module(nn.Conv2d(FeatureExtraction.n_conv_layer[0], FeatureExtraction.n_conv_layer[1],
                     # kernel_size=(2, 2), strides=(1, 1), )
-                    self.model.add_module('conv_' + str(layer_counter), conv2d_height_same_padding(
+                    self.model.add_module('conv_' + str(layer_counter), conv2d_same_padding(
                         FeatureExtraction.n_conv_channels[i], FeatureExtraction.n_conv_channels[i + 1],
                         FeatureExtraction.data_height, kernel_size=2
                     ))
@@ -197,7 +202,7 @@ class FeatureExtraction(torch.nn.Module):
 
             if is_deconv:
                 for i in range(FeatureExtraction.n_deconv_layer):
-                    self.model.add_module('deconv_' + str(layer_counter), conv2d_transpose_height_same_padding(
+                    self.model.add_module('deconv_' + str(layer_counter), conv2d_transpose_same_padding(
                         FeatureExtraction.n_deconv_channels[i], FeatureExtraction.n_deconv_channels[i + 1],
                         FeatureExtraction.data_height, kernel_size=(2, 2)
                     ))
@@ -209,7 +214,7 @@ class FeatureExtraction(torch.nn.Module):
 
                     layer_counter += 1
                 
-                self.model.add_module('conv_' + str(layer_counter), conv2d_height_same_padding(
+                self.model.add_module('conv_' + str(layer_counter), conv2d_same_padding(
                     FeatureExtraction.n_deconv_channels[FeatureExtraction.n_deconv_layer], 1,
                     FeatureExtraction.data_height, kernel_size=(2, 1)))
                 
@@ -269,8 +274,6 @@ class FeatureL2Norm(torch.nn.Module):
 
     def forward(self, feature):
         epsilon = 1e-6
-#        print(feature.size())
-#        print(torch.pow(torch.sum(torch.pow(feature,2),1)+epsilon,0.5).size())
         norm = torch.pow(torch.sum(torch.pow(feature, 2), 1) + epsilon, 0.5).unsqueeze(1).expand_as(feature)
         return torch.div(feature, norm)
 
@@ -280,24 +283,30 @@ class FeatureCorrelation(torch.nn.Module):
         super(FeatureCorrelation, self).__init__()
 
     def forward(self, f_a, f_b):
-        b, c, h, wa = f_a.size()
-        wb = f_b.size()[3]
-        main_log.debug(f_a.size())
-        main_log.debug(f_b.size())
+        # b, c, h, wa = f_a.size()
+        # wb = f_b.size()[3]
+
+        # # reshape features for matrix multiplication
+        # f_a = f_a.transpose(2, 3).contiguous().view(b, c, h * wa)
+        # f_b = f_b.view(b, c, h * wb).transpose(1, 2)
+
+        # # perform matrix mult.
+        # feature_mul = torch.bmm(f_b, f_a)
+        # correlation_tensor = feature_mul.view(b, h, wb, h * wa).transpose(2, 3).transpose(1, 2)
+
+        # return correlation_tensor
+
+        b, c, h, w = f_a.size()
 
         # reshape features for matrix multiplication
-        f_a = f_a.transpose(2, 3).contiguous().view(b, c, h * wa)
-        f_b = f_b.view(b, c, h * wb).transpose(1, 2)
+        f_a = f_a.transpose(2, 3).contiguous().view(b, c, h * w)
+        f_b = f_b.view(b, c, h * w).transpose(1, 2)
 
-        # perform matrix mult.
-        feature_mul = torch.bmm(f_b, f_a)
-        correlation_tensor = feature_mul.view(b, h, wb, h * wa).transpose(2, 3).transpose(1, 2)
+        # perform matrix multiplication
+        f_mul = torch.bmm(f_b, f_a)
+        correlation = f_mul.view(b, h, w, h * w).transpose(2, 3).transpose(1, 2)
 
-        main_log.debug(f_a.size())
-        main_log.debug(f_b.size())
-        main_log.debug(correlation_tensor.size())
-
-        return correlation_tensor
+        return correlation
 
 
 class FeatureRegression(nn.Module):
@@ -311,7 +320,7 @@ class FeatureRegression(nn.Module):
         layer_counter = 1
 
         for i in range(FeatureRegression.n_conv_layer):
-            self.model.add_module('conv_' + str(layer_counter), conv2d_height_same_padding(
+            self.model.add_module('conv_' + str(layer_counter), conv2d_same_padding(
                 FeatureRegression.n_conv_channels[i], FeatureRegression.n_conv_channels[i + 1],
                 FeatureRegression.data_height, kernel_size=FeatureRegression.n_conv_kernel_sizes[i]
             ))
@@ -322,8 +331,6 @@ class FeatureRegression(nn.Module):
             self.model.add_module('act_' + str(layer_counter), nn.ReLU())
 
             layer_counter += 1
-
-        # self.model.add_module('gap', nn.AvgPool2d())
 
         # load the pre-trained weights
         if weight_path and os.path.isfile(weight_path):
@@ -365,7 +372,8 @@ class CNNGeometric(nn.Module):
         self.fe_model = FeatureExtraction(model_name='self-defined', weight_path=fe_model_weight_path, use_cuda=self.use_cuda)
         self.L2_norm_model = FeatureL2Norm()
         self.fc_model = FeatureCorrelation()
-        self.fr_model = FeatureRegression(weight_path=fr_model_weight_path, use_cuda=self.use_cuda)
+        # self.fr_model = FeatureRegression(weight_path=fr_model_weight_path, use_cuda=self.use_cuda)
+        # change the regression layer into deconv layer
         self.ReLU = nn.ReLU(inplace=True)
 
         self.fr_model_weight_path = fr_model_weight_path

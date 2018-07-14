@@ -4,6 +4,7 @@ import sys
 import os
 import numpy as np
 import time
+import matplotlib.image as mat_img
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -67,12 +68,7 @@ device = torch.device('cuda' if use_cuda else 'cpu')
 
 
 def count_data(d):
-    count = 0
-
-    for data_name in os.listdir(d):
-        count += 1
-
-    return count
+    return len(os.listdir(d))
 
 
 def load_contour(path):
@@ -103,7 +99,8 @@ def generate_contour_from_dir(d, batch_size, is_infinite=True, is_name=False):
 
         for contour_name in os.listdir(d):
             contour_path = os.path.join(d, contour_name)
-            x = load_contour(contour_path)
+            # x = load_contour(contour_path)
+            x = mat_img.imread(contour_path)
 
             # the input data and ground truth are the same beacause it's an auto-encoder
             xs.append(x)
