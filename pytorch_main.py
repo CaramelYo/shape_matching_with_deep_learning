@@ -269,7 +269,8 @@ if __name__ == '__main__':
 
             # Create model
             main_log.info('create feature extraction model...')
-            model = FeatureExtraction(model_name='self-defined', weight_path=fe_model_weight_path, is_deconv=True, trainable=True, use_cuda=use_cuda)
+            # model = FeatureExtraction(model_name='self-defined', weight_path=fe_model_weight_path, is_deconv=True, trainable=True, use_cuda=use_cuda)
+            model = FeatureExtraction(model_name='resnet152', trainable=True, use_cuda=use_cuda)
 
             # loss function
             loss = nn.MSELoss()

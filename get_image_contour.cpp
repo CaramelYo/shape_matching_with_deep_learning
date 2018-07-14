@@ -27,6 +27,7 @@ vector<Point2i> get_contour_data_from_file(fs::path path, const char del = ' ');
 fs::path data_dir = "data";
 fs::path img_dir_path = data_dir / "image";
 fs::path contour_img_dir_path = data_dir / "contour_img";
+fs::path binary_contour_img_dir_path = data_dir / "binary_contour_img";
 fs::path contour_order_img_dir_path = data_dir / "contour_order_img";
 fs::path contour_data_dir_path = data_dir / "contour_data";
 fs::path pre_result_img_dir_path = data_dir / "preprocessing_image";
@@ -43,7 +44,7 @@ fs::path fe_selected_fixed_num_pre_img_dir = fe_dir / "40_80" / "selected_fixed_
 
 int img_counter = 0;
 
-int resized_width = 1024, resized_height = 1024, padding_len = 5;
+int resized_width = 512, resized_height = 512, padding_len = 5;
 int no_padding_resized_width = resized_width - 2 * padding_len, no_padding_resized_height = resized_height - 2 * padding_len;
 
 int main(int argc, char *argv[])
@@ -56,6 +57,7 @@ int main(int argc, char *argv[])
         {
             // check whether those directories of result exist
             check_dir_exist({contour_img_dir_path,
+                             binary_contour_img_dir_path,
                              contour_order_img_dir_path,
                              contour_data_dir_path,
                              pre_result_img_dir_path});
@@ -324,6 +326,7 @@ void get_contour_image(fs::path img_path, double threshold_0, double threshold_1
 
     // output the max_contour
     mat_image contour_img = output_contour_image(padding_img.size(), max_contour);
+    mat_image binary_contour_img = output_contour_image(padding_img.size(), max_contour, 1);
     mat_image contour_order_img = output_contour_order_image(padding_img.size(), max_contour);
     output_contour_data(contour_data_dir_path, img_counter, max_contour);
 
@@ -340,9 +343,12 @@ void get_contour_image(fs::path img_path, double threshold_0, double threshold_1
     hconcat(padding_img, canny_img, pre_result_img);
     hconcat(pre_result_img, contour_img.img, pre_result_img);
 
-    imwrite((contour_img_dir_path / to_string(img_counter) += img_path.extension()).c_str(), contour_img.img);
-    imwrite((contour_order_img_dir_path / to_string(img_counter) += img_path.extension()).c_str(), contour_order_img.img);
-    imwrite((pre_result_img_dir_path / to_string(img_counter++) += img_path.extension()).c_str(), pre_result_img);
+    fs::path img_extension = img_path.extension();
+
+    imwrite((contour_img_dir_path / to_string(img_counter) += img_extension).c_str(), contour_img.img);
+    imwrite((binary_contour_img_dir_path / to_string(img_counter) += img_extension).c_str(), binary_contour_img.img);
+    imwrite((contour_order_img_dir_path / to_string(img_counter) += img_extension).c_str(), contour_order_img.img);
+    imwrite((pre_result_img_dir_path / to_string(img_counter++) += img_extension).c_str(), pre_result_img);
 
     return;
 }

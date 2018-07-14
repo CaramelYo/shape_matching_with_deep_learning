@@ -111,42 +111,63 @@ class FeatureExtraction(torch.nn.Module):
     def __init__(self, model_name='vgg', weight_path=None, is_bn=True, is_conv=True, is_deconv=False, trainable=False, is_summary=True, use_cuda=True, last_layer=''):
         super(FeatureExtraction, self).__init__()
 
-        main_log.debug('create feature extraction model...')
+        main_log.debug('create feature extraction model %s ...' % model_name)
 
         if model_name == 'vgg':
             self.model = models.vgg16(pretrained=True)
             # keep feature extraction network up to indicated layer
-            vgg_feature_layers = ['conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1', 'conv2_1',
-                        'relu2_1', 'conv2_2', 'relu2_2', 'pool2', 'conv3_1', 'relu3_1',
-                        'conv3_2', 'relu3_2', 'conv3_3', 'relu3_3', 'pool3', 'conv4_1',
-                        'relu4_1', 'conv4_2', 'relu4_2', 'conv4_3', 'relu4_3', 'pool4',
-                        'conv5_1', 'relu5_1', 'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'pool5']
+            vgg_feature_layers = [
+                'conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1',
+                'conv2_1', 'relu2_1', 'conv2_2', 'relu2_2', 'pool2',
+                'conv3_1', 'relu3_1', 'conv3_2', 'relu3_2', 'conv3_3', 'relu3_3', 'pool3',
+                'conv4_1', 'relu4_1', 'conv4_2', 'relu4_2', 'conv4_3', 'relu4_3', 'pool4',
+                'conv5_1', 'relu5_1', 'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'pool5']
             if last_layer == '':
                 last_layer = 'pool4'
             last_layer_idx = vgg_feature_layers.index(last_layer)
             self.model = nn.Sequential(*list(self.model.features.children())[: last_layer_idx + 1])
         elif model_name == 'resnet101':
             self.model = models.resnet101(pretrained=True)
-            resnet_feature_layers = ['conv1',
-                                     'bn1',
-                                     'relu',
-                                     'maxpool',
-                                     'layer1',
-                                     'layer2',
-                                     'layer3',
-                                     'layer4']
+            resnet_feature_layers = [
+                'conv1', 'bn1', 'relu', 'maxpool',
+                'layer1',
+                'layer2',
+                'layer3',
+                'layer4']
             if last_layer == '':
                 last_layer = 'layer3'
+            
             last_layer_idx = resnet_feature_layers.index(last_layer)
-            resnet_module_list = [self.model.conv1,
-                                  self.model.bn1,
-                                  self.model.relu,
-                                  self.model.maxpool,
-                                  self.model.layer1,
-                                  self.model.layer2,
-                                  self.model.layer3,
-                                  self.model.layer4]
 
+            resnet_module_list = [
+                self.model.conv1, self.model.bn1, self.model.relu, self.model.maxpool,
+                self.model.layer1,
+                self.model.layer2,
+                self.model.layer3,
+                self.model.layer4]
+
+            self.model = nn.Sequential(*resnet_module_list[:last_layer_idx + 1])
+        elif model_name == 'resnet152':
+            # change the input layer ??
+            self.model = models.resnet152(pretrained=True)
+            resnet_feature_layers = [
+                'conv1', 'bn1', 'relu', 'maxpool',
+                'layer1',
+                'layer2',
+                'layer3',
+                'layer4']
+            if last_layer == '':
+                last_layer = 'layer3'
+            
+            last_layer_idx = resnet_feature_layers.index(last_layer)
+
+            resnet_module_list = [
+                self.model.conv1, self.model.bn1, self.model.relu, self.model.maxpool,
+                self.model.layer1,
+                self.model.layer2,
+                self.model.layer3,
+                self.model.layer4]
+            
             self.model = nn.Sequential(*resnet_module_list[:last_layer_idx + 1])
         elif model_name == 'self-defined':
             self.model = nn.Sequential()
@@ -220,11 +241,13 @@ class FeatureExtraction(torch.nn.Module):
         # move to GPU
         if use_cuda:
             self.model.cuda()
+            # self.model = nn.DataParallel(self.model, device_ids=range(torch.cuda.device_count()))
+            # cudnn.benchmark = True
 
         # summary
         if is_summary:
             # input_size = (C, H, W)
-            summary(self.model, input_size=(1, 2, 10))
+            summary(self.model, input_size=(1, 512, 512))
 
         main_log.debug('creating feature extraction model is completed')
 
