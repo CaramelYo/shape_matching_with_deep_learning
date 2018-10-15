@@ -221,7 +221,7 @@ def get_loss(a, b):
             main_log.debug('yo')
             main_log.debug(y_pred)
             main_log.debug(type(y_pred))
-            main_log.debug(y_pred.eval())
+            # main_log.debug(y_pred.eval())
 
             loss = losses.mean_squared_error(y_true, y_pred)
 

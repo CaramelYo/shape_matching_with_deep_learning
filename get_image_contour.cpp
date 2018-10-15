@@ -17,7 +17,7 @@ namespace fs = std::experimental::filesystem;
 mat_image output_contour_image(const Size &img_size, const vector<Point2i> &contour, const uint8_t &color = 255);
 mat_image output_contour_order_image(const Size &img_size, const vector<Point2i> &contour, const uint8_t &b = 255, const uint8_t &g = 0, uint8_t r = 0);
 void output_contour_data(const fs::path &dir_path, const int &img_counter, const vector<Point2i> &contour);
-void get_contour_image(fs::path img_path, double threshold_0 = 40., double threshold_1 = 80., bool is_inverted = true);
+void get_contour_image(fs::path img_path, double threshold_0 = 50., double threshold_1 = 100., bool is_inverted = true);
 void check_dir_exist(initializer_list<fs::path> dir_path_list);
 vector<Point2i> get_contour_data_from_file(fs::path path, const char del = ' ');
 
@@ -27,6 +27,7 @@ vector<Point2i> get_contour_data_from_file(fs::path path, const char del = ' ');
 fs::path data_dir = "data";
 fs::path img_dir_path = data_dir / "image";
 fs::path contour_img_dir_path = data_dir / "contour_img";
+fs::path full_contour_img_dir_path = data_dir / "full_contour_img";
 fs::path binary_contour_img_dir_path = data_dir / "binary_contour_img";
 fs::path contour_order_img_dir_path = data_dir / "contour_order_img";
 fs::path contour_data_dir_path = data_dir / "contour_data";
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
         {
             // check whether those directories of result exist
             check_dir_exist({contour_img_dir_path,
+                             full_contour_img_dir_path,
                              binary_contour_img_dir_path,
                              contour_order_img_dir_path,
                              contour_data_dir_path,
@@ -325,8 +327,13 @@ void get_contour_image(fs::path img_path, double threshold_0, double threshold_1
     vector<Point> max_contour = contours[max_contour_index];
 
     // output the max_contour
+    fs::path img_extension = img_path.extension();
+
     mat_image contour_img = output_contour_image(padding_img.size(), max_contour);
     mat_image binary_contour_img = output_contour_image(padding_img.size(), max_contour, 1);
+
+    imwrite((full_contour_img_dir_path / to_string(img_counter) += img_extension).c_str(), contour_img.img);
+
     mat_image contour_order_img = output_contour_order_image(padding_img.size(), max_contour);
     output_contour_data(contour_data_dir_path, img_counter, max_contour);
 
@@ -342,8 +349,6 @@ void get_contour_image(fs::path img_path, double threshold_0, double threshold_1
     Mat pre_result_img;
     hconcat(padding_img, canny_img, pre_result_img);
     hconcat(pre_result_img, contour_img.img, pre_result_img);
-
-    fs::path img_extension = img_path.extension();
 
     imwrite((contour_img_dir_path / to_string(img_counter) += img_extension).c_str(), contour_img.img);
     imwrite((binary_contour_img_dir_path / to_string(img_counter) += img_extension).c_str(), binary_contour_img.img);
