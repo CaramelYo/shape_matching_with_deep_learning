@@ -21,3 +21,26 @@ indices = torch.tensor([[-1., -1.], [0.5, 0.]], dtype=torch.float).reshape(1, 1,
 output = torch.nn.functional.grid_sample(src, indices)
 print(src)
 print(output)
+
+src = torch.arange(6, dtype=torch.float).reshape(1, 1, 2, -1)
+ws = src.shape[3]
+new_ws = 2 * ws
+src[0, 0, 1, 1] = 4.9
+
+output = torch.nn.functional.interpolate(src, (2, new_ws), mode='bilinear')
+
+print(src)
+print(output)
+print(src.shape)
+print(output.shape)
+
+src_1 = torch.rand(1, 1, 3)
+# src_1 = src[:, :, 1, :]
+
+print(src_1.shape)
+
+output = torch.nn.functional.interpolate(src_1, (5), mode='linear', align_corners=True)
+print(src_1)
+print(output)
+print(src_1.shape)
+print(output.shape)
