@@ -259,7 +259,7 @@ class FeatureExtraction(torch.nn.Module):
         if is_summary:
             # input_size = (C, H, W)
             # summary(self.model, input_size=(1, 512, 512))
-            summary(self.model, input_size=(1, 2, 1500))
+            summary(self.model, input_size=(1, 2, 1500), dtype=torch.get_default_dtype())
 
         main_log.debug('creating feature extraction model is completed')
 
@@ -352,7 +352,7 @@ class FeatureRegression(nn.Module):
 
         # summary
         if is_summary:
-            summary(self.model, input_size=(2992, 2, 1496))
+            summary(self.model, input_size=(2992, 2, 1496), dtype=torch.get_default_dtype())
 
         main_log.debug('creating feature regression model is completed')
 
@@ -417,7 +417,7 @@ class FeatureMatching(nn.Module):
 
         # summary
         if is_summary:
-            summary(self.model, input_size=(512 * 512, 512, 512))
+            summary(self.model, input_size=(512 * 512, 512, 512), dtype=torch.get_default_dtype())
 
         main_log.debug('creating feature matching model is completed')
 
@@ -504,7 +504,7 @@ class MatchingPointSelection(nn.Module):
 
         # summary
         if is_summary:
-            summary(self.model, input_size=(contour_data_size[0] * contour_data_size[1], contour_data_size[0], contour_data_size[1]))
+            summary(self.model, input_size=(contour_data_size[0] * contour_data_size[1], contour_data_size[0], contour_data_size[1]), dtype=torch.get_default_dtype())
 
         main_log.debug('creating matching point selection is completed')
 

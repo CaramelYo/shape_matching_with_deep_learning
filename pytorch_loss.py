@@ -80,185 +80,327 @@ class ShapeMatchingLoss(nn.Module):
         # batch and channel size will be 1
         # b, c, h, w = pr_a.size()
 
-        # get the indices
-        # how to ensure that a_0 muse be less than a_1 ????
-        a_0 = pr_a[0, 0, 0, 0]
-        a_1 = pr_a[0, 0, 0, 1]
-        b_0 = pr_a[0, 0, 0, 2]
-        b_1 = pr_a[0, 0, 0, 3]
+        def loss_fn(pr):
+            # get the indices
+            a_0 = pr[0, 0, 0, 0]
+            a_1 = pr[0, 0, 0, 1]
+            b_0 = pr[0, 0, 0, 2]
+            b_1 = pr[0, 0, 0, 3]
 
-        # # compose the index pairs
-        # a_0_pair = torch.cat((a_0.view(1), torch.zeros(1))).view(b, c, -1, 2)
-        # a_1_pair = torch.cat((a_1.view(1), torch.zeros(1))).view(b, c, -1, 2)
-        # b_0_pair = torch.cat((b_0.view(1), torch.zeros(1))).view(b, c, -1, 2)
-        # b_1_pair = torch.cat((b_1.view(1), torch.zeros(1))).view(b, c, -1, 2)
+            def swap(x, y, msg=None):
+                if x > y:
+                    t = y
+                    y = x
+                    x = t
 
-        # # separate the x and y coordinates from input
-        # input_a_x = input_a[:, :, 0:1, :]
-        # input_a_y = input_a[:, :, 1:2, :]
-        # input_b_x = input_b[:, :, 0:1, :]
-        # input_b_y = input_b[:, :, 1:2, :]
+                    if not msg:
+                        print(msg)
+                
+                return x, y
 
-        # # add the start point to the selected_a
-        # selected_a = torch.cat((
-        #     nn.functional.grid_sample(input_a_x, a_0_pair),
-        #     nn.functional.grid_sample(input_a_y, a_0_pair)
-        # ), dim=3)
-        
-        # # get those points between the start point(a_0) and end point(a_1) with the interval = 0.001 (about 2 / 1500)
-        # # and then add those in-between points to selected_a
-        # # it must use two non-dimensional tensors in the "<" judgement
-        # a_t = a_0
-        # while a_t < a_1:
-        #     a_t_pair = torch.cat((a_t.view(1), torch.zeros(1))).view(b, c, -1, 2)
-
-        #     selected_a = torch.cat((
-        #         selected_a,
-        #         torch.cat((
-        #             nn.functional.grid_sample(input_a_x, a_t_pair),
-        #             nn.functional.grid_sample(input_a_y, a_t_pair)
-        #         ), dim=3)
-        #     ), dim=2)
-
-        #     a_t = a_t + torch.tensor([0.001])
-
-        # # add the end point
-        # selected_a = torch.cat((
-        #     selected_a,
-        #     torch.cat((
-        #         nn.functional.grid_sample(input_a_x, a_1_pair),
-        #         nn.functional.grid_sample(input_a_y, a_1_pair)
-        #     ), dim=3)
-        # ), dim=2)
-
-        # print(a_0)
-        # print(a_1)
-        # print(selected_a.shape)
-
-        # return selected_a.sum()
-
-        def get_partial_contour(contour, c_0, c_1):
-            # compose the index pairs
-            c_0_pair = torch.cat([c_0.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
-            c_1_pair = torch.cat([c_1.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
-
-            # separate the x and y coordinates from the original contour
-            c_x = contour[:, :, 0:1, :]
-            c_y = contour[:, :, 1:2, :]
-
-            # add the start point to the selected_c
-            selected_c = torch.cat([
-                nn.functional.grid_sample(c_x, c_0_pair),
-                nn.functional.grid_sample(c_y, c_0_pair)
-            ], dim=3)
+            # is this acceptable to swap the values of pr ???
+            a_0, a_1 = swap(a_0, a_1, 'a swaps')
+            b_0, b_1 = swap(b_0, b_1, 'b swaps')
             
-            # get those points between the start point(c_0) and end point(c_1) with the interval = 0.001 (about 2 / 1500)
-            # and then add those in-between points to selected_c
-            # it must use two non-dimensional tensors in the "<" judgement
-            c_t = c_0
-            while c_t < c_1:
-                c_t_pair = torch.cat([c_t.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
+            # if pr[0, 0, 0, 0] <= pr[0, 0, 0, 1]:
+            #     a_0 = pr[0, 0, 0, 0]
+            #     a_1 = pr[0, 0, 0, 1]
+            # else:
+            #     a_0 = pr[0, 0, 0, 1]
+            #     a_1 = pr[0, 0, 0, 0]
+            
+            # if pr[0, 0, 0, 2] <= pr[0, 0, 0, 3]:
+            #     b_0 = pr[0, 0, 0, 2]
+            #     b_1 = pr[0, 0, 0, 3]
+            # else:
+            #     b_0 = pr[0, 0, 0, 3]
+            #     b_1 = pr[0, 0, 0, 2]
+            
+            # print('a_0 = ' + str(a_0))
+            # print('a_1 = ' + str(a_1))
+            # print('b_0 = ' + str(b_0))
+            # print('b_1 = ' + str(b_1))
 
+            # # compose the index pairs
+            # a_0_pair = torch.cat((a_0.view(1), torch.zeros(1))).view(b, c, -1, 2)
+            # a_1_pair = torch.cat((a_1.view(1), torch.zeros(1))).view(b, c, -1, 2)
+            # b_0_pair = torch.cat((b_0.view(1), torch.zeros(1))).view(b, c, -1, 2)
+            # b_1_pair = torch.cat((b_1.view(1), torch.zeros(1))).view(b, c, -1, 2)
+
+            # # separate the x and y coordinates from input
+            # input_a_x = input_a[:, :, 0:1, :]
+            # input_a_y = input_a[:, :, 1:2, :]
+            # input_b_x = input_b[:, :, 0:1, :]
+            # input_b_y = input_b[:, :, 1:2, :]
+
+            # # add the start point to the selected_a
+            # selected_a = torch.cat((
+            #     nn.functional.grid_sample(input_a_x, a_0_pair),
+            #     nn.functional.grid_sample(input_a_y, a_0_pair)
+            # ), dim=3)
+            
+            # # get those points between the start point(a_0) and end point(a_1) with the interval = 0.001 (about 2 / 1500)
+            # # and then add those in-between points to selected_a
+            # # it must use two non-dimensional tensors in the "<" judgement
+            # a_t = a_0
+            # while a_t < a_1:
+            #     a_t_pair = torch.cat((a_t.view(1), torch.zeros(1))).view(b, c, -1, 2)
+
+            #     selected_a = torch.cat((
+            #         selected_a,
+            #         torch.cat((
+            #             nn.functional.grid_sample(input_a_x, a_t_pair),
+            #             nn.functional.grid_sample(input_a_y, a_t_pair)
+            #         ), dim=3)
+            #     ), dim=2)
+
+            #     a_t = a_t + torch.tensor([0.001])
+
+            # # add the end point
+            # selected_a = torch.cat((
+            #     selected_a,
+            #     torch.cat((
+            #         nn.functional.grid_sample(input_a_x, a_1_pair),
+            #         nn.functional.grid_sample(input_a_y, a_1_pair)
+            #     ), dim=3)
+            # ), dim=2)
+
+            # print(a_0)
+            # print(a_1)
+            # print(selected_a.shape)
+
+            # return selected_a.sum()
+
+            def get_partial_contour(contour, c_0, c_1):
+                # compose the index pairs
+                c_0_pair = torch.cat([c_0.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
+                c_1_pair = torch.cat([c_1.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
+
+                # separate the x and y coordinates from the original contour
+                c_x = contour[:, :, 0:1, :]
+                c_y = contour[:, :, 1:2, :]
+
+                # add the start point to the selected_c
+                selected_c = torch.cat([
+                    nn.functional.grid_sample(c_x, c_0_pair),
+                    nn.functional.grid_sample(c_y, c_0_pair)
+                ], dim=3)
+                
+                # get those points between the start point(c_0) and end point(c_1) with the interval = 0.001 (about 2 / 1500)
+                # and then add those in-between points to selected_c
+                # it must use two non-dimensional tensors in the "<" judgement
+                c_t = c_0
+                while c_t < c_1:
+                    c_t_pair = torch.cat([c_t.view(1), torch.zeros(1)]).view(1, 1, -1, 2)
+
+                    selected_c = torch.cat([
+                        selected_c,
+                        torch.cat([
+                            nn.functional.grid_sample(c_x, c_t_pair),
+                            nn.functional.grid_sample(c_y, c_t_pair)
+                        ], dim=3)
+                    ], dim=2)
+
+                    # don't use the inplace operator to tensor!! ex: "+="
+                    c_t = c_t + torch.tensor(0.001)
+
+                # add the end point
                 selected_c = torch.cat([
                     selected_c,
                     torch.cat([
-                        nn.functional.grid_sample(c_x, c_t_pair),
-                        nn.functional.grid_sample(c_y, c_t_pair)
+                        nn.functional.grid_sample(c_x, c_1_pair),
+                        nn.functional.grid_sample(c_y, c_1_pair)
                     ], dim=3)
                 ], dim=2)
 
-                c_t += torch.tensor(0.001)
+                return selected_c
 
-            # add the end point
-            selected_c = torch.cat([
-                selected_c,
-                torch.cat([
-                    nn.functional.grid_sample(c_x, c_1_pair),
-                    nn.functional.grid_sample(c_y, c_1_pair)
-                ], dim=3)
-            ], dim=2)
+            # shape = b, c, a_num, 2
+            selected_a = get_partial_contour(input_a, a_0, a_1)
+            selected_b = get_partial_contour(input_b, b_0, b_1)
 
-            return selected_c
+            # resize the shape to 2, a_num
+            selected_a = selected_a.view(-1, 2).transpose(0, 1)
+            selected_b = selected_b.view(-1, 2).transpose(0, 1)
 
-        # shape = b, c, a_num, 2
-        selected_a = get_partial_contour(input_a, a_0, a_1)
-        selected_b = get_partial_contour(input_b, b_0, b_1)
+            # print('selected_a.shape = ' + str(selected_a.shape))
+            # print('selected_b.shape = ' + str(selected_b.shape))
 
-        # resize the shape to 2, a_num
-        selected_a = selected_a.view(-1, 2).transpose(0, 1)
-        selected_b = selected_b.view(-1, 2).transpose(0, 1)
+            # return selected_a.sum() + selected_b.sum()
+            
+            # transform a to b
 
-        print('selected_a.shape = ' + str(selected_a.shape))
-        print('selected_b.shape = ' + str(selected_b.shape))
-        
-        # transform a to b
+            # b0 - a0 = d
+            # d shape = 2
+            d = selected_b[:, 0] - selected_a[:, 0]
+            # dx shape = 1
+            dx = d[0].view(1)
+            dy = d[1].view(1)
+            
+            # cos and sin
+            translated_a1 = selected_a[:, -1] + d
+            # e0 = translated_a1 - b0
+            # e0 shape = 2
+            e0 = translated_a1 - selected_b[:, 0]
+            # e1 = b1 - b0
+            e1 = selected_b[:, -1] - selected_b[:, 0]
 
-        # b0 - a0 = d
-        # d shape = 2
-        d = selected_b[:, 0] - selected_a[:, 0]
-        # dx shape = 1
-        dx = d[0].view(1)
-        dy = d[1].view(1)
-        
-        # cos and sin
-        translated_a1 = selected_a[:, -1] + d
-        # e0 = translated_a1 - b0
-        # e0 shape = 2
-        e0 = translated_a1 - selected_b[:, 0]
-        # e1 = b1 - b0
-        e1 = selected_b[:, -1] - selected_b[:, 0]
+            cos = torch.sum(e0 * e1, dim=0) / (e0.norm(2, dim=0) * e1.norm(2, dim=0)).view(1)
+            sin = torch.sqrt(1. - cos * cos)
 
-        cos = torch.sum(e0 * e1, dim=0) / (e0.norm(2, dim=0) * e1.norm(2, dim=0)).view(1)
-        sin = torch.sqrt(1. - cos * cos)
+            # special case in sin
+            if torch.isnan(sin[0]):
+                sin[0] = torch.zeros(1)
 
-        # special case in sin
-        if torch.isnan(sin[0]):
-            sin[0] = torch.zeros(1)
+            # cross in z-dim
+            cross = e0[0] * e1[1] - e0[1] * e1[0]
+            cross_lt = cross.lt(0).view(1)
 
-        # cross in z-dim
-        cross = e0[0] * e1[1] - e0[1] * e1[0]
-        cross_lt = cross.lt(0).view(1)
+            # scale
+            scale = (selected_b[:, -1] - selected_b[:, 0]).norm(2, dim=0) / (selected_a[:, -1] - selected_a[:, 0]).norm(2, dim=0).view(1)
+            
+            scale_cos = scale * cos
+            scale_sin = scale * sin
 
-        # scale
-        scale = (selected_b[:, -1] - selected_b[:, 0]).norm(2, dim=0) / (selected_a[:, -1] - selected_a[:, 0]).norm(2, dim=0).view(1)
-        
-        scale_cos = scale * cos
-        scale_sin = scale * sin
+            # affine
+            affine = torch.cat([
+                torch.cat([scale_cos, -scale_sin, dx], dim=0).view(1, -1),
+                torch.cat([scale_sin, scale_cos, dy], dim=0).view(1, -1),
+                torch.cat([torch.zeros(2), torch.ones(1)], dim=0).view(1, -1)
+            ], dim=0)
 
-        # affine
-        affine = torch.cat([
-            torch.cat([scale_cos, -scale_sin, dx], dim=0).view(1, -1),
-            torch.cat([scale_sin, scale_cos, dy], dim=0).view(1, -1),
-            torch.cat([torch.zeros(2), torch.ones(1)], dim=0).view(1, -1)
-        ], dim=0)
+            # correct affine with cross_lt
+            if torch.eq(cross_lt[0], 1):
+                affine[0, 1] = affine[0, 1].neg()
+                affine[1, 0] = affine[1, 0].neg()
 
-        # correct affine with cross_lt
-        if torch.eq(cross_lt[0], 1):
-            affine[0, 1] = affine[0, 1].neg()
-            affine[1, 0] = affine[1, 0].neg()
+            # homoheneous coordinates
+            # homo_selected_a shape = 3, a_num
+            # homo_selected_a = torch.cat([selected_a, torch.ones(1, selected_a.shape[1], dtype=torch.float32)], dim=0)
+            homo_selected_a = torch.cat([selected_a, torch.ones(1, selected_a.shape[1])], dim=0)
 
-        # homoheneous coordinates
-        # homo_selected_a shape = 3, a_num
-        homo_selected_a = torch.cat([selected_a, torch.ones(1, selected_a.shape[1], dtype=torch.float32)], dim=0)
+            transformed_homo_selected_a = torch.matmul(affine, homo_selected_a)
+            # transformed_selected_a shape = 2, a_num
+            transformed_selected_a = transformed_homo_selected_a.narrow(0, 0, 2).contiguous()
 
-        transformed_homo_selected_a = torch.matmul(affine, homo_selected_a)
-        # transformed_selected_a shape = 2, a_num
-        transformed_selected_a = transformed_homo_selected_a.narrow(0, 0, 2).contiguous()
+            # bijective function
+            # transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b, wa, wb)
+            # shape = 2, a_num and 2, b_num
+            transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b)
+            
+            # float_wab = torch.tensor(wab, dtype=torch.float32, requires_grad=True)
+            # print('wab = ' + str(wab))
 
-        # bijective function
-        # transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b, wa, wb)
-        transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b)
-        exit()
+            pi = torch.tensor([3.1416], requires_grad=True)
 
-        float_wab = torch.tensor(wab, dtype=torch.float32, requires_grad=True)
-        print('wab = ' + str(wab))
+            total_loss = torch.zeros(1, requires_grad=True)
 
-        pi = torch.tensor([3.1416], requires_grad=True)
+            # convexity matching cost
+            convexity_loss = torch.ones(1, requires_grad=True)
 
-        total_loss = torch.zeros(1, requires_grad=True)
+            if wab >= 3:
+                def convexity_cue(c, i):
+                    # if v0 == v1 or v1 == v2 or v2 == v3
+                    # then cos will be nan
 
+                    v1 = c[:, i]
+                    v0 = c[:, i - 1]
+                    v2 = c[:, i + 1]
 
+                    # main_log.debug('v0 = ' + str(v0))
+                    # main_log.debug('v1 = ' + str(v1))
+                    # main_log.debug('v2 = ' + str(v2))
 
+                    if torch.equal(v0, v1) or torch.equal(v1, v2) or torch.equal(v0, v2):
+                        return False
+
+                    # print('v0 = ' + str(v0))
+                    # print('v1 = ' + str(v1))
+                    # print('v2 = ' + str(v2))
+
+                    v01 = v1 - v0
+                    v12 = v2 - v1
+
+                    # has grad
+                    # return (v01 - v12).sum()
+
+                    # main_log.debug('v01 = ' + str(v01))
+                    # main_log.debug('v12 = ' + str(v12))
+
+                    # print('v01 = ' + str(v01))
+                    # print('v12 = ' + str(v12))
+
+                    # cos
+                    cos = torch.sum(v01 * v12, dim=0) / (v01.norm(2, dim=0) * v12.norm(2, dim=0))
+                    # print('cos')
+                    # print(cos)
+
+                    # return cos
+
+                    # # main_log.debug('cos = ' + str(cos))
+
+                    # cross in z-dim
+                    cross = v01[0] * v12[1] - v01[1] * v12[0]
+                    cross_sign = cross.sign()
+
+                    # main_log.debug('cross = ' + str(cross))
+
+                    cos_eps = 1e-7
+                    theta = torch.acos(cos.clamp(min=-1 + cos_eps, max=1 - cos_eps))
+
+                    # main_log.debug('theta = ' + str(theta))
+
+                    convexity = cross_sign * (pi - theta)
+
+                    return convexity
+
+                fab = torch.zeros(1, requires_grad=True)
+
+                # for i in range(1, wab - 1, 1):
+                for i in range(1, 10, 1):
+                    convexity_a = convexity_cue(transformed_selected_a, i)
+                    convexity_b = convexity_cue(selected_b, i)
+
+                    if not (convexity_a and convexity_b):
+                        continue
+
+                    # main_log.debug('convexity_a = ' + str(convexity_a))
+                    # main_log.debug('convexity_b = ' + str(convexity_b))
+
+                    fab = fab + torch.sign(convexity_a * convexity_b) * torch.sqrt(torch.abs(convexity_a * convexity_b))
+                    # fab = fab + torch.abs(convexity_a * convexity_b)
+                    # fab = fab + convexity_a + convexity_b
+                    # fab = fab + 
+
+                # print('fab = ' + str(fab))
+                fab = fab / wab
+                convexity_loss = convexity_loss + fab
+                # print(convexity_loss)
+                # main_log.info('convexity loss = ' + str(convexity_loss))
+
+            # # matching length cost
+            # matching_length_cost = torch.ones(1, requires_grad=True)
+
+            # # problems ??
+            # # the sizes of a and b contours are initially the same (1500)
+            # # the true sizes between a and b contours may be different
+            # # matching_length_cost = matching_length_cost - max(
+            # #     # selected_a.shape[1] / input_a.shape[3],
+            # #     selected_b.shape[1] / input_b.shape[3]
+            # # )
+
+            # # matching_length_cost = matching_length_cost - selected_b.shape[1] / input_b.shape[3]
+
+            # total_loss = convexity_loss + matching_length_cost
+            # total_loss = total_loss + matching_length_cost
+            total_loss = total_loss + convexity_loss
+
+            return total_loss, selected_a, selected_b
+
+        pr_a_loss, selected_a, selected_b = loss_fn(pr_a)
+        pr_b_loss, selected_a, selected_b = loss_fn(pr_b)
+
+        return ((pr_a_loss + pr_b_loss) / 2) + torch.pow(pr_a_loss - pr_b_loss, 2), selected_a, selected_b
 
 
 
@@ -520,23 +662,28 @@ class ShapeMatchingLoss(nn.Module):
         wa = a.shape[1]
         wb = b.shape[1]
 
-        a = a.view(1, 1, 2, -1)
-        b = b.view(1, 1, 2, -1)
-
+        # upsampling
         if wa > wb:
             # wa > wb
             # print('wa > wb')
             # a = ShapeMatchingLoss.fixed_number_contour(a, wb)
             # w = wb
             # use the upsampling in pytorch
-            nn.functional.interpolate(a)
+            # warning : the bilinear mode doesn't seem to interpolate between two rows ??
+            b = b.view(1, 1, 2, -1)
+            b = nn.functional.interpolate(b, (2, wa), mode='bilinear', align_corners=True)
+            b = b.view(2, -1)
+            w = wa
         elif wa < wb:
             # wa < wb
             # print('wa < wb')
             # b = ShapeMatchingLoss.fixed_number_contour(b, wa)
             # w = wa
             # # use the upsampling in pytorch
-            nn.functional.interpolate(a)
+            a = a.view(1, 1, 2, -1)
+            a = nn.functional.interpolate(a, (2, wb), mode='bilinear', align_corners=True)
+            a = a.view(2, -1)
+            w = wb
         elif wa == wb:
             # wa == wb
             # main_log.debug('a and b are the same')

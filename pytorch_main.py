@@ -55,7 +55,7 @@ fe_epoch = 2
 fe_batch_size = 1
 
 fr_lr = 0.00001
-fr_epoch = 10
+fr_epoch = 10000
 
 img_size = (512, 512, 3)
 
@@ -79,6 +79,8 @@ device = torch.device('cuda' if use_cuda else 'cpu')
 if use_cuda:
     main_log.info('torch.cuda.FloatTensor')
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    # main_log.info('torch.cuda.DoubleTensor')
+    # torch.set_default_tensor_type('torch.cuda.DoubleTensor')
 
 
 def count_data(d):
@@ -154,12 +156,14 @@ def generate_contour_data_from_dir(d, mode=2, is_infinite=True):
         for c_name in os.listdir(d_path):
             c_path = osp.join(d_path, c_name)
 
-            a = torch.tensor([], dtype=torch.float32, requires_grad=True)
+            # a = torch.tensor([], dtype=torch.float32, requires_grad=True)
             # a = torch.tensor([], dtype=torch.float32)
+            a = torch.tensor([], requires_grad=True)
             with open(c_path, 'r') as f:
                 for line in f.readlines():
                     line_split = line.split(' ')
-                    xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())], dtype=torch.float32).view(2, 1)
+                    # xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())], dtype=torch.float32).view(2, 1)
+                    xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())]).view(2, 1)
                     a = torch.cat([a, xy], dim=1)
 
             yield a, c_name
@@ -171,8 +175,9 @@ def generate_contour_data_from_dir(d, mode=2, is_infinite=True):
         elif mode == 2:
             for pair_dir in os.listdir(d):
                 pair_path = osp.join(d, pair_dir)
-                ab = torch.tensor([], dtype=torch.float32, requires_grad=True)
+                # ab = torch.tensor([], dtype=torch.float32, requires_grad=True)
                 # ab = torch.tensor([], dtype=torch.float32)
+                ab = torch.tensor([], requires_grad=True)
                 ab_names = []
 
                 for a, name in get_contour_data(pair_path):
@@ -407,21 +412,21 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
         optimizer.zero_grad()
         pr_a, pr_b = model(a, b)
 
-        loss = loss_fn(pr_a, pr_b, a, b)
+        # loss = loss_fn(pr_a, pr_b, a, b)
+        loss, selected_a, selected_b = loss_fn(pr_a, pr_b, a, b)
 
         loss.backward()
 
         # print(model.mps_model.model[0][1].weight)
-        print('grad = ')
-        print(model.mps_model.model[0][1].weight.grad)
-        exit()
+        # print('grad = ')
+        # print(model.mps_model.model[0][1].weight.grad)
+        # exit()
 
         # print('convexity_loss grad =')
         # print(convexity_loss.grad)
 
         # print('matching_length_cost grad =')
         # print(matching_length_cost.grad)
-
 
         optimizer.step()
 
@@ -435,15 +440,15 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
         ))
 
         # output the result
-        selected_a, selected_b, wa, wb = ShapeMatchingLoss.get_contours(pr_a, pr_b, a, b)
+        # selected_a, selected_b, wa, wb = ShapeMatchingLoss.get_contours(pr_a, pr_b, a, b)
 
         # need?
         # transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b, wa, wb)
 
-        a = tensor_to_numpy(a, use_cuda=use_cuda)
-        b = tensor_to_numpy(b, use_cuda=use_cuda)
-        selected_a = tensor_to_numpy(selected_a, use_cuda=use_cuda)
-        selected_b = tensor_to_numpy(selected_b, use_cuda=use_cuda)
+        # a = tensor_to_numpy(a, use_cuda=use_cuda)
+        # b = tensor_to_numpy(b, use_cuda=use_cuda)
+        # selected_a = tensor_to_numpy(selected_a, use_cuda=use_cuda)
+        # selected_b = tensor_to_numpy(selected_b, use_cuda=use_cuda)
 
         d_path = osp.join(fr_result_dir, d_name)
         if not osp.isdir(d_path):
@@ -460,7 +465,7 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
             # print('output_img c.shape = ' + str(c.shape))
             # print('output_img selected_c.shape = ' + str(selected_c.shape))
 
-            for i in range(c.shape[1]):
+            for i in range(c.shape[3]):
                 y = int(c[0, 0, 1, i] * img_size[0])
                 x = int(c[0, 0, 0, i] * img_size[1])
 
@@ -468,18 +473,19 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
                 # img[c[1, i], c[0, i], :] = 0
 
             n = name.split('.')[0]
-            cv.imwrite(osp.join(d_path, 'origin_' + n + '.png'), img)
+            if osp.isfile(osp.join(d_path, 'origin_' + n + '.png')):
+                cv.imwrite(osp.join(d_path, 'origin_' + n + '.png'), img)
 
             for i in range(wc):
-                y = int(selected_c[0, 1, i] * img_size[0])
-                x = int(selected_c[0, 0, i] * img_size[1])
+                y = int(selected_c[1, i] * img_size[0])
+                x = int(selected_c[0, i] * img_size[1])
 
                 img[y, x, :] = color
 
-            cv.imwrite(osp.join(d_path, 'matching_' + n + '.png'), img)
+            cv.imwrite(osp.join(d_path, str(epoch) + '_matching_' + n + '.png'), img)
 
-        output_img(a, selected_a, wa, ab_names[0])
-        output_img(b, selected_b, wb, ab_names[1])
+        output_img(a, selected_a, selected_a.shape[1], ab_names[0])
+        output_img(b, selected_b, selected_b.shape[1], ab_names[1])
 
     train_loss /= total_count
     
@@ -618,9 +624,6 @@ if __name__ == '__main__':
             # print(test_sum.grad)
             # exit()
 
-
-
-
             if not osp.isdir(fr_result_dir):
                 os.mkdir(fr_result_dir)
 
@@ -644,7 +647,8 @@ if __name__ == '__main__':
 
                 # save the weight with best loss
                 if train_loss < best_loss:
-                    torch.save(model.state_dict(), fr_model_weight_path)
+                    # torch.save(model.state_dict(), fr_model_weight_path)
+                    torch.save(model.mps_model.state_dict(), fr_model_weight_path)
                     best_loss = train_loss
 
             main_log.info('training is completed')
