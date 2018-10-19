@@ -20,7 +20,8 @@ class ShapeMatchingLoss(nn.Module):
         super(ShapeMatchingLoss, self).__init__()
         self.use_cuda = use_cuda
 
-    def forward(self, pr_a, pr_b, input_a, input_b):
+    # def forward(self, pr_a, pr_b, input_a, input_b):
+    def forward(self, pr_b, input_a, input_b):
         # # there are grads in loss value
         # print(pr_a.requires_grad)
         # print(pr_b.requires_grad)
@@ -93,8 +94,8 @@ class ShapeMatchingLoss(nn.Module):
                     y = x
                     x = t
 
-                    if not msg:
-                        print(msg)
+                    if msg:
+                        main_log.debug(msg)
                 
                 return x, y
 
@@ -298,6 +299,8 @@ class ShapeMatchingLoss(nn.Module):
             # convexity matching cost
             convexity_loss = torch.ones(1, requires_grad=True)
 
+            main_log.debug('wab = ' + str(wab))
+
             if wab >= 3:
                 def convexity_cue(c, i):
                     # if v0 == v1 or v1 == v2 or v2 == v3
@@ -356,13 +359,16 @@ class ShapeMatchingLoss(nn.Module):
 
                 fab = torch.zeros(1, requires_grad=True)
 
-                # for i in range(1, wab - 1, 1):
-                for i in range(1, 10, 1):
+                counter = 0
+
+                for i in range(1, wab - 1, 1):
                     convexity_a = convexity_cue(transformed_selected_a, i)
                     convexity_b = convexity_cue(selected_b, i)
 
                     if not (convexity_a and convexity_b):
                         continue
+
+                    counter += 1
 
                     # main_log.debug('convexity_a = ' + str(convexity_a))
                     # main_log.debug('convexity_b = ' + str(convexity_b))
@@ -375,6 +381,8 @@ class ShapeMatchingLoss(nn.Module):
                 # print('fab = ' + str(fab))
                 fab = fab / wab
                 convexity_loss = convexity_loss + fab
+                main_log.debug('counter = ' + str(counter))
+                main_log.debug('convexity_loss = ' + str(convexity_loss))
                 # print(convexity_loss)
                 # main_log.info('convexity loss = ' + str(convexity_loss))
 
@@ -397,11 +405,11 @@ class ShapeMatchingLoss(nn.Module):
 
             return total_loss, selected_a, selected_b
 
-        pr_a_loss, selected_a, selected_b = loss_fn(pr_a)
+        # pr_a_loss, selected_a, selected_b = loss_fn(pr_a)
         pr_b_loss, selected_a, selected_b = loss_fn(pr_b)
 
-        return ((pr_a_loss + pr_b_loss) / 2) + torch.pow(pr_a_loss - pr_b_loss, 2), selected_a, selected_b
-
+        # return ((pr_a_loss + pr_b_loss) / 2) + torch.pow(pr_a_loss - pr_b_loss, 2), selected_a, selected_b
+        return pr_b_loss, selected_a, selected_b
 
 
         # # b, c, h, w = pr_a.size()

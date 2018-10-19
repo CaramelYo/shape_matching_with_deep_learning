@@ -508,11 +508,16 @@ class MatchingPointSelection(nn.Module):
 
         main_log.debug('creating matching point selection is completed')
 
-    def forward(self, corre_a, corre_b):
-        pr_a = self.model(corre_a)
+    # def forward(self, corre_a, corre_b):
+    #     pr_a = self.model(corre_a)
+    #     pr_b = self.model(corre_b)
+        
+    #     return pr_a, pr_b
+
+    def forward(self, corre_b):
         pr_b = self.model(corre_b)
         
-        return pr_a, pr_b
+        return pr_b
 
     n_conv_layer = 7
     # 2 * 1500
@@ -593,7 +598,7 @@ class CNNGeometric(nn.Module):
 
 
 class PrModel(nn.Module):
-    def __init__(self, fe_model_weight_path=None, is_normalized_feature=True, is_normalized_match=True, use_cuda=True):
+    def __init__(self, fe_model_weight_path=None, fr_model_weight_path=None, is_normalized_feature=True, is_normalized_match=True, use_cuda=True):
         super(PrModel, self).__init__()
 
         self.use_cuda = use_cuda
@@ -605,7 +610,7 @@ class PrModel(nn.Module):
         self.fc_model = FeatureCorrelation()
         # self.fr_model = FeatureRegression(weight_path=fr_model_weight_path, use_cuda=self.use_cuda)
         # self.fm_model = FeatureMatching(weight_path=fm_model_weight_path, use_cuda=self.use_cuda)
-        self.mps_model = MatchingPointSelection(weight_path=None, use_cuda=self.use_cuda)
+        self.mps_model = MatchingPointSelection(weight_path=fr_model_weight_path, use_cuda=self.use_cuda)
         self.ReLU = nn.ReLU(inplace=True)
     
     # def forward(self, a, b, input_a, input_b):
@@ -626,9 +631,11 @@ class PrModel(nn.Module):
         if self.is_normalized_match:
             correlation_b = self.L2_norm_model(self.ReLU(correlation_b))
 
-        b, c, h, w = correlation_b.size()
-        correlation_a = correlation_b.view(b, c, h * w).transpose(1, 2).view(b, c, h, w)
+        # b, c, h, w = correlation_b.size()
+        # correlation_a = correlation_b.view(b, c, h * w).transpose(1, 2).view(b, c, h, w)
 
-        pr_a, pr_b = self.mps_model(correlation_a, correlation_b)
+        # pr_a, pr_b = self.mps_model(correlation_a, correlation_b)
+        pr_b = self.mps_model(correlation_b)
 
-        return pr_a, pr_b
+        # return pr_a, pr_b
+        return pr_b

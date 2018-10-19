@@ -55,7 +55,7 @@ fe_epoch = 2
 fe_batch_size = 1
 
 fr_lr = 0.00001
-fr_epoch = 10000
+fr_epoch = 5000
 
 img_size = (512, 512, 3)
 
@@ -151,22 +151,39 @@ def generate_contour_img_from_dir(d, batch_size, is_infinite=True, is_name=False
             break
 
 
+def get_contour_data(d_path):
+    for c_name in os.listdir(d_path):
+        c_path = osp.join(d_path, c_name)
+
+        # a = torch.tensor([], dtype=torch.float32, requires_grad=True)
+        # a = torch.tensor([], dtype=torch.float32)
+        a = torch.tensor([], requires_grad=True)
+        with open(c_path, 'r') as f:
+            for line in f.readlines():
+                line_split = line.split(' ')
+                # xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())], dtype=torch.float32).view(2, 1)
+                xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())]).view(2, 1)
+                a = torch.cat([a, xy], dim=1)
+
+        yield a, c_name
+
+
 def generate_contour_data_from_dir(d, mode=2, is_infinite=True):
-    def get_contour_data(d_path):
-        for c_name in os.listdir(d_path):
-            c_path = osp.join(d_path, c_name)
+    # def get_contour_data(d_path):
+    #     for c_name in os.listdir(d_path):
+    #         c_path = osp.join(d_path, c_name)
 
-            # a = torch.tensor([], dtype=torch.float32, requires_grad=True)
-            # a = torch.tensor([], dtype=torch.float32)
-            a = torch.tensor([], requires_grad=True)
-            with open(c_path, 'r') as f:
-                for line in f.readlines():
-                    line_split = line.split(' ')
-                    # xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())], dtype=torch.float32).view(2, 1)
-                    xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())]).view(2, 1)
-                    a = torch.cat([a, xy], dim=1)
+    #         # a = torch.tensor([], dtype=torch.float32, requires_grad=True)
+    #         # a = torch.tensor([], dtype=torch.float32)
+    #         a = torch.tensor([], requires_grad=True)
+    #         with open(c_path, 'r') as f:
+    #             for line in f.readlines():
+    #                 line_split = line.split(' ')
+    #                 # xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())], dtype=torch.float32).view(2, 1)
+    #                 xy = torch.tensor([float(line_split[0].strip()), float(line_split[1].strip())]).view(2, 1)
+    #                 a = torch.cat([a, xy], dim=1)
 
-            yield a, c_name
+    #         yield a, c_name
 
     while True:
         if mode == 1:
@@ -250,8 +267,32 @@ def generate_contour_data_from_dir(d, mode=2, is_infinite=True):
 #     return train_loss_value
 
 
-def tensor_to_numpy(t, use_cuda=True):
+def tensor_to_numpy(t, use_cuda=use_cuda):
     return t.data.cpu().numpy() if use_cuda else t.data.numpy()
+
+
+def contour_to_img(c, path=None):
+    # contour img
+    img = np.ones(img_size, dtype=np.uint8)
+    for y in range(img_size[0]):
+        for x in range(img_size[1]):
+            img[y, x, :] = 255
+
+    # if c.type() == torch.get_default_dtype():
+    #     c = tensor_to_numpy(c)
+
+    w = c.shape[1]
+
+    for i in range(w):
+        y = int(c[1, i] * img_size[0])
+        x = int(c[0, i] * img_size[1])
+
+        img[y, x, :] = [0, 0, 0]
+
+    if path:
+        cv.imwrite(path, img)
+    
+    return img
 
 
 def fe_train(epoch, model, loss_fn, optimizer, is_output=False, use_cuda=True):
@@ -283,7 +324,7 @@ def fe_train(epoch, model, loss_fn, optimizer, is_output=False, use_cuda=True):
 
     train_loss /= total_count
 
-    print('train set : average loss : {:.4f}'.format(train_loss))
+    main_log.info('train set : average loss : {:.4f}'.format(train_loss))
     return train_loss
 
 # def fe_test(model, loss, use_cuda=True):
@@ -329,7 +370,7 @@ def fe_test(model, d, loss_fn, is_output=False, use_cuda=True):
 
     test_loss /= total_count
 
-    print('test set : average loss : {:.4f}'.format(test_loss))
+    main_log.info('test set : average loss : {:.4f}'.format(test_loss))
     return test_loss
 
 
@@ -406,18 +447,23 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
     for a, b, d_name, ab_names in generate_contour_data_from_dir(fr_training_dir, is_infinite=False):
         h, w = a.shape
         
-        a = a.view(1, 1, h, w).contiguous()
-        b = b.view(1, 1, h, w).contiguous()
+        a = a.view(1, 1, h, w)
+        b = b.view(1, 1, h, w)
 
         optimizer.zero_grad()
-        pr_a, pr_b = model(a, b)
+        # pr_a, pr_b = model(a, b)
+        pr_b = model(a, b)
 
         # loss = loss_fn(pr_a, pr_b, a, b)
-        loss, selected_a, selected_b = loss_fn(pr_a, pr_b, a, b)
+        # loss, selected_a, selected_b = loss_fn(pr_a, pr_b, a, b)
+        loss, selected_a, selected_b = loss_fn(pr_b, a, b)
 
         loss.backward()
 
         # print(model.mps_model.model[0][1].weight)
+        # there is a situation that grad could be None !?
+        if not model.mps_model.model[0][1].weight.grad.sum():
+            main_log.debug('grad == None in epoch ' + str(epoch))
         # print('grad = ')
         # print(model.mps_model.model[0][1].weight.grad)
         # exit()
@@ -445,36 +491,14 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
         # need?
         # transformed_selected_a, selected_b, wab = ShapeMatchingLoss.bijective(transformed_selected_a, selected_b, wa, wb)
 
-        # a = tensor_to_numpy(a, use_cuda=use_cuda)
-        # b = tensor_to_numpy(b, use_cuda=use_cuda)
-        # selected_a = tensor_to_numpy(selected_a, use_cuda=use_cuda)
-        # selected_b = tensor_to_numpy(selected_b, use_cuda=use_cuda)
-
         d_path = osp.join(fr_result_dir, d_name)
         if not osp.isdir(d_path):
             os.mkdir(d_path)
 
         color = np.array([0, 0, 255], dtype=np.uint8)
 
-        def output_img(c, selected_c, wc, name):
-            img = np.zeros(img_size, dtype=np.uint8)
-            for y in range(img_size[0]):
-                for x in range(img_size[1]):
-                    img[y, x, :] = 255
-
-            # print('output_img c.shape = ' + str(c.shape))
-            # print('output_img selected_c.shape = ' + str(selected_c.shape))
-
-            for i in range(c.shape[3]):
-                y = int(c[0, 0, 1, i] * img_size[0])
-                x = int(c[0, 0, 0, i] * img_size[1])
-
-                img[y, x, :] = 0
-                # img[c[1, i], c[0, i], :] = 0
-
-            n = name.split('.')[0]
-            if osp.isfile(osp.join(d_path, 'origin_' + n + '.png')):
-                cv.imwrite(osp.join(d_path, 'origin_' + n + '.png'), img)
+        def create_matching_img(c, selected_c, wc):
+            img = contour_to_img(c.squeeze())
 
             for i in range(wc):
                 y = int(selected_c[1, i] * img_size[0])
@@ -482,14 +506,17 @@ def fr_train(epoch, model, loss_fn, optimizer, use_cuda=True):
 
                 img[y, x, :] = color
 
-            cv.imwrite(osp.join(d_path, str(epoch) + '_matching_' + n + '.png'), img)
+            # cv.imwrite(osp.join(d_path, str(epoch) + '_matching_' + n + '.png'), img)
+            return img
 
-        output_img(a, selected_a, selected_a.shape[1], ab_names[0])
-        output_img(b, selected_b, selected_b.shape[1], ab_names[1])
+        img_a = create_matching_img(a, selected_a, selected_a.shape[1])
+        img_b = create_matching_img(b, selected_b, selected_b.shape[1])
+
+        cv.imwrite(osp.join(d_path, str(epoch) + '_matching.png'), np.append(img_a, img_b, axis=1))
 
     train_loss /= total_count
     
-    main_log.info('train set : average loss : {:.4f}'.format(train_loss.data[0]))
+    main_log.info('train set : average loss : {:.4f}\n\n'.format(train_loss.data[0]))
     return train_loss
 
 
@@ -624,12 +651,32 @@ if __name__ == '__main__':
             # print(test_sum.grad)
             # exit()
 
+            # create the compared original imgs in fr_result_dir
             if not osp.isdir(fr_result_dir):
                 os.mkdir(fr_result_dir)
 
+            for pair_dir in os.listdir(fr_training_dir):
+                ori_pair_path = osp.join(fr_training_dir, pair_dir)
+                result_pair_path = osp.join(fr_result_dir, pair_dir)
+
+                if not osp.isdir(result_pair_path):
+                    os.mkdir(result_pair_path)
+
+                imgs = []
+
+                for c, _ in get_contour_data(ori_pair_path):
+                    # n = name.split('.')[0]
+                    # imgs.append(contour_to_img(c, osp.join(result_pair_path, n + '.png')))
+                    imgs.append(contour_to_img(c))
+
+                assert(len(imgs) == 2)
+
+                compared_img = np.append(imgs[0], imgs[1], axis=1)
+                cv.imwrite(osp.join(result_pair_path, 'compared_img.png'), compared_img)
+
             # create model
             main_log.info('create self-defined model')
-            model = PrModel(fe_model_weight_path, use_cuda=use_cuda)
+            model = PrModel(fe_model_weight_path, fr_model_weight_path, use_cuda=use_cuda)
 
             # loss function
             loss_fn = ShapeMatchingLoss(use_cuda=use_cuda)
